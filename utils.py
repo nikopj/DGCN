@@ -66,25 +66,40 @@ def unstack(S):
 	(B, C, I, J, M, M) -> (B, C, I*M, J*M)
 	"""
 	B, C, I, J, M, _ = S.shape
-	T = S.reshape(B, I*J, C*M*M).permute(0,2,1)
+	T = S.permute(0,2,3,1,4,5).reshape(B, I*J, C*M*M).permute(0,2,1)
 	return F.fold(T, (I*M, J*M), M, stride=M)
 
-def indexTranslate(idx, grid_idx=None):
-	""" Translate stacked grid index (B, I, J, M*M, K)
-	to tiled-image index, (B, H, W, K)
+def indexTranslate(idx):
+	""" Translate stacked grid index (B, K, I, J, M, M)
+	to tiled-image index, (B, K, H, W)
 	"""
-	B, I, J, MM, K = idx.shape
-	M = int(np.sqrt(MM))
+	B, K, I, J, M, _ = idx.shape
 	# each idx entries grid-index
-	grid_idx = torch.arange(0,I*J).repeat_interleave(M*M).reshape(1,I,J,M*M,1)
+	grid_idx = torch.arange(0,I*J).repeat_interleave(M*M).reshape(1,1,I,J,M,M).repeat_interleave(K, dim=1)
+	print("grid_idx")
+	print(grid_idx)
 	# grid index row and column (inter-window)
-	gi, gj = grid_idx//M, grid_idx%M
+	gi, gj = grid_idx//J, grid_idx%J
+	print("gi")
+	print(gi)
+	print("gj")
+	print(gj)
 	# window index row and column (intra-window)
 	wi, wj = idx//M, idx%M
+	print("wi")
+	print(wi)
+	print("wj")
+	print(wj)
 	# global index row and column
-	m, n = wi+gi*M, wj+ gj*M
+	m, n = wi+gi*M, wj+gj*M
+	print("m")
+	print(m)
+	print("n")
+	print(n)
 	# global flattened index
 	p = J*M*m + n
+	print("p")
+	print(p)
 	# stack to tile (unstack requires float)
-	return unstack(p.reshape(B,I,J,M,M,K).permute(0,5,1,2,3,4).float()).long().permute(0,2,3,1)
+	return unstack(p.float()).long()
 

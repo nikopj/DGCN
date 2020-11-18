@@ -10,20 +10,24 @@ import net
 import utils
 from visual import visplot
 import sys
-
 def main():
 	x1 = imgLoad('Set12/04.png')
 	x2 = imgLoad('Set12/05.png')
 	x  = torch.cat([x1,x2])
+	#x = imgLoad('CBSD68/0018.png')
+	#x = torch.arange(0, 10**2).reshape(1,1,10,10).float() 
+	#x = x
+
+	#print(x)
 
 	print(x.shape)
 	C = 1
 	Cout = 3
 	rank = 3
-	K = 8
+	K = 2
 	n = 165
-	M = 32
-	h = x[:,:,n:n+M,n:n+M]
+	M = 5
+	h = x[:,:,n:n+2*M,n:n+2*M]
 
 	pad = utils.calcPad2D(*x.shape[2:], M)
 	xpad = utils.pad(x, pad)                # (B, C, H, W)
@@ -36,24 +40,94 @@ def main():
 	print(xs.shape)
 	xbs = utils.batch_stack(xs)             # (B*I*J, C, M, M)
 
+	ys = utils.unbatch_stack(xbs, xs.shape)
+	ypad = utils.unstack(ys)
+	y = utils.unpad(ypad, pad)
+	visplot(y, (1,len(y)))
+	plt.show()
+	sys.exit()
+
 	mask = localMask(M, M, 3)
 	G = graphAdj(xbs, mask) # (B*I*J, M*M, M*M)
-	edge = torch.topk(G, K, largest=False).indices # (B*I*J, M*M, K)
-	edge = edge.reshape(B, I, J, M*M, K).float()
-	edge_prime = utils.indexTranslate(edge) # (B, H, W, K)
+	edge = torch.topk(G, K, largest=False, sorted=True).indices.permute(0,2,1).reshape(-1,K,M,M) # (B*I*J,K,M,M) //(B*I*J, M*M, K)
+	edge = utils.unbatch_stack(edge, (B,K,I,J,M,M)) # (B,K,I,J,M,M)
+	edge_prime = utils.indexTranslate(edge) # (B,K,H,W)
 
-	GConv = net.GraphConv(C,Cout)
-	ypad = GConv(xpad, edge_prime.reshape(B, N, K))
-	y = utils.unpad(ypad, pad)
+	print("edge")
+	#print(edge[0,:,0,0,0,0])
+	print(edge)
+	print("edge_prime")
+	print(edge_prime)
+	#print(edge_prime[0,:,0,0])
 
-	a = y.min()
-	b = y.max()
-	y = (y - a)/(b-a)
+	print("edge k=0")
+	print(edge[0,0])
+	print("edge k=1")
+	print(edge[0,1])
 
-	visplot(x, (1,len(x)))
-	visplot(y, (1,len(y)))
-	#visplot(torch.clamp(G,0,1), (1, len(x)))
+	
+
+	#B = 1
+	#H, W = 3, 6
+	#K, M = 2, 3
+	#I, J = H//M, W//M
+
+	#nedge = torch.randint(0,M*M, (B,K,I,J,M,M))
+	#nedge_prime = utils.indexTranslate(nedge)
+	#print(nedge)
+	#print(nedge_prime)
+	#print(torch.arange(0,H*W).reshape(1,1,H,W))
+	#print(torch.arange(0,M*M).reshape(1,1,M,M))
+	#sys.exit()
+
+
+
+	#GConv = net.GraphConv(C,Cout)
+	#ypad = GConv(xpad, edge_prime.reshape(B, N, K))
+	#y = utils.unpad(ypad, pad)
+
+	#a = y.min()
+	#b = y.max()
+	#y = (y - a)/(b-a)
+
+	im = plt.imshow((xpad[0]/xpad.max()).repeat(3,1,1).permute(1,2,0).squeeze())
+	#im = plt.imshow(xpad[0].permute(1,2,0).squeeze())
+	fig = plt.gcf()
+	ax = plt.gca()
+
+	handler = EventHandler(fig, ax, im, edge_prime)
 	plt.show()
+
+	#visplot(x, (1,len(x)))
+	#visplot(y, (1,len(y)))
+	#plt.show()
+
+class EventHandler:
+	def __init__(self, fig, ax, im, edge):
+		fig.canvas.mpl_connect('button_press_event', self.onpress)
+		self.fig = fig
+		self.ax = ax
+		self.im = im
+		self.data = im.get_array()
+		self.edge = edge
+		self.cols = self.data.shape[1]
+
+	def onpress(self, event):
+		if event.inaxes!=self.ax:
+			return
+		self.im.set_array(self.data)
+		n, m = (int(round(c)) for c in (event.xdata, event.ydata))
+		print(m,n)
+		e    = self.edge[0,:,m,n]
+		em, en = e//self.cols, e%self.cols
+		hi_data = self.data.copy()
+		print("Edges:", em, en)
+		for k in range(len(e)):
+			hi_data[em[k],en[k],:] = np.array([255, 0, 0])
+		self.im.set_array(hi_data)
+		#value = self.im.get_array()[xi,yi]
+		#color = self.im.cmap(self.im.norm(value))
+		plt.draw()
 
 def windowedTopK(h, M, K, mask):
 	""" Returns top K feature vector indices for 
