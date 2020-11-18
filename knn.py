@@ -1,10 +1,101 @@
 #!/usr/bin/env python3
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import to_tensor
 import matplotlib.pyplot as plt
+import net
+import utils
+from visual import visplot
+import sys
+
+def main():
+	x1 = imgLoad('Set12/04.png')
+	x2 = imgLoad('Set12/05.png')
+	x  = torch.cat([x1,x2])
+
+	print(x.shape)
+	C = 3
+	Cout = 3
+	rank = 3
+	K = 8
+	n = 165
+	m = 42
+	h = x[:,:,n:n+m,n:n+m]
+
+	B, C, H, W = h.shape
+	N = H*W
+
+	pad = utils.calcPad2D(*x.shape[2:], m)
+	print(pad)
+	xpad = utils.pad(x, pad)
+	#print(xpad.shape)
+	#Hnew, Wnew = xpad.shape[2:]
+	#print(Hnew/m, Wnew/m)
+	#v = xpad.unfold(2, m, m).unfold(3, m, m)
+	#print(v.shape)
+	#vv = v.permute(0, 2, 3, 1, 4, 5).reshape(-1, C, m, m)
+	#print(vv.shape)
+
+
+	#I, J = Hnew //m, Wnew //m
+	#print(I, J, I*J)
+
+
+	#uu = vv.reshape(B, I*J, C*m*m).permute(0,2,1)
+	#print(uu.shape)
+	#ypad = F.fold(uu, (Hnew, Wnew), m, stride=m)
+	#print(ypad.shape)
+
+	xs = utils.stack(xpad, m)
+	ypad = utils.unstack(xs, m, xpad.shape)
+
+	y = utils.unpad(ypad, pad)
+	print(y.shape)
+	
+	visplot(y, (1,len(x)))
+	plt.show()
+
+
+
+
+	#mask = localMask(m,m,3)
+	#G = graphAdj(h, mask)
+	#edge = torch.topk(G, K, largest=False).indices  # (B, N, K)
+	#print(edge.shape)
+	#print(edge[0,:3,:])
+
+
+	#GConv = net.GraphConv(C,Cout)
+	#hnew = GConv(h, edge)
+
+	#a = hnew.min()
+	#b = hnew.max()
+	#print(a,b)
+	#hnew = (hnew - a)/(b-a)
+
+	##plt.figure()
+	##plt.imshow(mask)
+	##plt.figure()
+	##plt.imshow(x.permute(0,2,3,1).squeeze())
+	#plt.figure()
+	#plt.imshow(h.permute(0,2,3,1).squeeze())
+	#plt.figure()
+	#plt.imshow(hnew.detach().permute(0,2,3,1).squeeze())
+	#plt.figure()
+	#plt.imshow(torch.clamp(G,0,1).squeeze())
+	#plt.show()
+
+def windowedTopK(h, M, K, mask):
+	""" Returns top K feature vector indices for 
+	h: (B, C, H, W) input feature
+	M: window side-length
+	mask: (H*W, H*W) Graph mask.
+	output: (B, N, K) edge indices
+	"""
+	v = "yo"
 
 def imgLoad(path, gray=False):
 	if gray:
@@ -16,6 +107,7 @@ def graphAdj(h, mask):
 	Using the following identity:
 		||h_j - h_i||^2 = ||h_j||^2 - 2h_j^Th_i + ||h_i||^2
 	h (B, C, H, W)
+	mask (H*W, H*W)
 	L (B, N, N), N=H*W
 	"""
 	N = h.shape[2]*h.shape[3] # num pixels
@@ -33,6 +125,7 @@ def localMask(H,W,M):
 	H: image height
 	W: image width
 	M: local area side-length (square filter side-length)
+	output: (H*W, H*W)
 	"""
 	N = H*W
 	mask = torch.ones(N,N, dtype=torch.bool)
@@ -68,102 +161,6 @@ def getLabelVertex(input, edge):
 	label = vertex - v.unsqueeze(-1) # (B, C, N, K)
 	return label, vertex
 
-class LowRankECC(nn.Module):
-	""" Low Rank Edge-Conditioned Convolution, 2-layer MLP
-	"""
-	def __init__(self, Cin, Cout, rank, delta=10, leak=1e-2):
-		super(LowRankECC, self).__init__()
-		self.FC0 = nn.Linear(Cin, Cin)       # edge-label preprocesser
-		self.FCL = nn.Linear(Cin, rank*Cout) # left vector generator
-		self.FCR = nn.Linear(Cin, rank*Cin)  # right vector generator
-		self.FCk = nn.Linear(Cin, rank)      # scale generator
-		self.act = nn.LeakyReLU(leak)
-		self.rank  = rank
-		self.Cin   = Cin
-		self.Cout  = Cout
-		self.delta = delta
-	
-	def forward(self, vertex, label):
-		"""
-		vertex: (B, Cin, N, K), K-neighbor vertex signals at pixel n
-		labels (B, Cin, N, K), edge-labels for each K-neighbors at pixel n
-		output (B, Cout, N), edge-conditioned non-local conv
-		"""
-		B, C, N, K = vertex.shape
-		# move pixel and K neighbors into batch dimension
-		label_tilde  = label.reshape(B*K, C, N).reshape(B*K*N, C)
-		vertex_tilde = vertex.reshape(B*K, C, N).reshape(B*K*N, C)
-		B0 = B*K*N
-		# layer-1: learned edge-label preprocess
-		theta  = self.act(self.FC0(label_tilde))
-		# layer-2: generate low-rank matrix for each neighbor based on edge-label
-		thetaL = self.FCL(theta).reshape(B0, self.Cout, self.rank)
-		thetaR = self.FCR(theta).reshape(B0, self.Cin,  self.rank)
-		kappa  = self.FCk(theta) 
-		# stage-3: apply low-rank matrix
-		# (Cout, 1) = (Cout, rank) @ diag(rank, 1) @ (rank, Cin), batch supressed
-		output = thetaL @ (kappa.unsqueeze(-1) * (thetaR.transpose(1,2) @ vertex_tilde.unsqueeze(-1)))
-		# stage-4: non-local attention term
-		gamma = torch.exp(-torch.sum(label_tilde**2, dim=1, keepdim=True)/self.delta).unsqueeze(-1)
-		# average over K neighbors
-		output = (gamma*output).reshape(B*K, self.Cout, N).reshape(B, self.Cout, N, K).mean(dim=3)
-		return output
+if __name__ == "__main__":
+	main()
 
-class GraphConv(nn.Module):
-	""" Graph-Convolution Module.
-	Computes average (+bias) of learned local and non-local convolutions.
-	"""
-	def __init__(self, Cin, Cout, ks=3, rank=3, delta=10, leak=1e-2):
-		super(GraphConv, self).__init__()
-		self.NLAgg = LowRankECC(Cin, Cout, rank, delta, leak)
-		self.Conv  = nn.Conv2d(Cin, Cout, ks, padding=(ks-1)//2, padding_mode='reflect', bias=False)
-		self.bias  = nn.Parameter(torch.zeros(1,Cout,1,1))
-
-	def forward(self, h, edge):
-		""" 
-		h: (B, C, H, W) batched input feature map for image shape (H, W)
-		edge: (B, N, K) edge indices for K-Regular-Graph of nearest neighbors at pixel n of h
-		"""
-		B, C, H, W = h.shape
-		label, vertex = getLabelVertex(h, edge)
-		hNL  = self.NLAgg(vertex, label).reshape(B, C, H, W)
-		hL   = self.Conv(h)
-		return (hNL + hL)/2 + self.bias
-
-x = imgLoad('CBSD68/0018.png')
-print(x.shape)
-C = 3
-Cout = 3
-rank = 3
-K = 8
-n = 165
-m = 42
-h = x[:,:,n:n+m,n:n+m]
-
-B, C, H, W = h.shape
-N = H*W
-
-mask = localMask(m,m,3)
-G = graphAdj(h, mask)
-edge = torch.topk(G, K, largest=False).indices  # (B, N, K)
-
-GConv = GraphConv(C,Cout)
-hnew = GConv(h, edge)
-
-a = hnew.min()
-b = hnew.max()
-print(a,b)
-hnew = (hnew - a)/(b-a)
-
-#plt.figure()
-#plt.imshow(mask)
-#plt.figure()
-#plt.imshow(x.permute(0,2,3,1).squeeze())
-plt.figure()
-plt.imshow(h.permute(0,2,3,1).squeeze())
-plt.figure()
-plt.imshow(hnew.detach().permute(0,2,3,1).squeeze())
-plt.figure()
-plt.imshow(torch.clamp(G,0,1).squeeze())
-#
-plt.show()
