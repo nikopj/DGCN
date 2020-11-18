@@ -17,76 +17,43 @@ def main():
 	x  = torch.cat([x1,x2])
 
 	print(x.shape)
-	C = 3
+	C = 1
 	Cout = 3
 	rank = 3
 	K = 8
 	n = 165
-	m = 42
-	h = x[:,:,n:n+m,n:n+m]
+	M = 32
+	h = x[:,:,n:n+M,n:n+M]
 
-	B, C, H, W = h.shape
+	pad = utils.calcPad2D(*x.shape[2:], M)
+	xpad = utils.pad(x, pad)                # (B, C, H, W)
+
+	B, C, H, W = xpad.shape
 	N = H*W
 
-	pad = utils.calcPad2D(*x.shape[2:], m)
-	print(pad)
-	xpad = utils.pad(x, pad)
-	#print(xpad.shape)
-	#Hnew, Wnew = xpad.shape[2:]
-	#print(Hnew/m, Wnew/m)
-	#v = xpad.unfold(2, m, m).unfold(3, m, m)
-	#print(v.shape)
-	#vv = v.permute(0, 2, 3, 1, 4, 5).reshape(-1, C, m, m)
-	#print(vv.shape)
+	xs = utils.stack(xpad, M)               # (B, C, I, J, M, M)
+	I, J = xs.shape[2], xs.shape[3]
+	print(xs.shape)
+	xbs = utils.batch_stack(xs)             # (B*I*J, C, M, M)
 
+	mask = localMask(M, M, 3)
+	G = graphAdj(xbs, mask) # (B*I*J, M*M, M*M)
+	edge = torch.topk(G, K, largest=False).indices # (B*I*J, M*M, K)
+	edge = edge.reshape(B, I, J, M*M, K).float()
+	edge_prime = utils.indexTranslate(edge) # (B, H, W, K)
 
-	#I, J = Hnew //m, Wnew //m
-	#print(I, J, I*J)
-
-
-	#uu = vv.reshape(B, I*J, C*m*m).permute(0,2,1)
-	#print(uu.shape)
-	#ypad = F.fold(uu, (Hnew, Wnew), m, stride=m)
-	#print(ypad.shape)
-
-	xs = utils.stack(xpad, m)
-	ypad = utils.unstack(xs, m, xpad.shape)
-
+	GConv = net.GraphConv(C,Cout)
+	ypad = GConv(xpad, edge_prime.reshape(B, N, K))
 	y = utils.unpad(ypad, pad)
-	print(y.shape)
-	
-	visplot(y, (1,len(x)))
+
+	a = y.min()
+	b = y.max()
+	y = (y - a)/(b-a)
+
+	visplot(x, (1,len(x)))
+	visplot(y, (1,len(y)))
+	#visplot(torch.clamp(G,0,1), (1, len(x)))
 	plt.show()
-
-
-
-
-	#mask = localMask(m,m,3)
-	#G = graphAdj(h, mask)
-	#edge = torch.topk(G, K, largest=False).indices  # (B, N, K)
-	#print(edge.shape)
-	#print(edge[0,:3,:])
-
-
-	#GConv = net.GraphConv(C,Cout)
-	#hnew = GConv(h, edge)
-
-	#a = hnew.min()
-	#b = hnew.max()
-	#print(a,b)
-	#hnew = (hnew - a)/(b-a)
-
-	##plt.figure()
-	##plt.imshow(mask)
-	##plt.figure()
-	##plt.imshow(x.permute(0,2,3,1).squeeze())
-	#plt.figure()
-	#plt.imshow(h.permute(0,2,3,1).squeeze())
-	#plt.figure()
-	#plt.imshow(hnew.detach().permute(0,2,3,1).squeeze())
-	#plt.figure()
-	#plt.imshow(torch.clamp(G,0,1).squeeze())
-	#plt.show()
 
 def windowedTopK(h, M, K, mask):
 	""" Returns top K feature vector indices for 
@@ -106,9 +73,9 @@ def graphAdj(h, mask):
 	""" ||h_j - h_i||^2 L2 similarity matrix formation
 	Using the following identity:
 		||h_j - h_i||^2 = ||h_j||^2 - 2h_j^Th_i + ||h_i||^2
-	h (B, C, H, W)
-	mask (H*W, H*W)
-	L (B, N, N), N=H*W
+	h: input (B, C, H, W)
+	mask: (H*W, H*W) 
+	G: output (B, N, N), N=H*W
 	"""
 	N = h.shape[2]*h.shape[3] # num pixels
 	v = h.reshape(-1,h.shape[1],N) # (B, C, N)

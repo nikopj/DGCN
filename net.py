@@ -60,8 +60,8 @@ class GraphConv(nn.Module):
 		h: (B, C, H, W) batched input feature map for image shape (H, W)
 		edge: (B, N, K) edge indices for K-Regular-Graph of nearest neighbors at pixel n of h
 		"""
-		B, C, H, W = h.shape
+		B, _, H, W = h.shape
 		label, vertex = knn.getLabelVertex(h, edge)
-		hNL  = self.NLAgg(vertex, label).reshape(B, C, H, W)
+		hNL  = self.NLAgg(vertex, label).reshape(B, -1, H, W)
 		hL   = self.Conv(h)
 		return (hNL + hL)/2 + self.bias

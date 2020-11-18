@@ -40,22 +40,51 @@ def unpad(I, pad):
 	else:
 		return I[..., pad[2]:-pad[3], pad[0]:-pad[1]]
 
-def stack(I, M):
-	""" Stack I (B, C, H, W) into patches of size (MxM) in the 
-	batch dimension. H, W are assumed to be divisible by M.
-	S: (B*(H/M)*(W/M), C, M, M) patch-stacked output
+def stack(T, M):
+	""" Stack I (B, C, H, W) into patches of size (MxM).
+	output: (B, C, I, J, H, W).
 	"""
-	S = I.unfold(2,M,M).unfold(3,M,M)
-	S = S.permute(0,2,3,1,4,5).reshape(-1,I.shape[1],M,M)
-	return S
+	return T.unfold(2,M,M).unfold(3,M,M)
 
-def unstack(S, M, outshape):
-	""" Tile stacked 2D signal S (B*pr*pc, C, M, M) into original 
-	signal of size outshape (B, C, H, W).
+def batch_stack(S):
+	""" Reorder stack (B, C, I, J, M, M) so that 
+	patches are stacked in the batch dimension,
+	output: (B*I*J, C, H, W)
 	"""
-	B, C, H, W = outshape
-	nr, nc = H//M, W//M
-	I = S.reshape(B, nr*nc, C*M*M).permute(0,2,1)
-	I = F.fold(I, (H,W), M, stride=M)
-	return I
-	
+	C, M = S.shape[1], S.shape[-1]
+	return S.permute(0,2,3,1,4,5).reshape(-1,C,M,M)
+
+def unbatch_stack(S, stack_shape):
+	""" Reorder batched stack into non-batcheys)
+	(B*I*J, C, M, M) -> (B, C, I, J, M, M)
+	"""
+	B, C, I, J, M, _ = stack_shape
+	return S.reshape(B, I, J, C, M, M).permute(0,3,1,2,4,5)
+
+def unstack(S):
+	""" Tile patches to form image
+	(B, C, I, J, M, M) -> (B, C, I*M, J*M)
+	"""
+	B, C, I, J, M, _ = S.shape
+	T = S.reshape(B, I*J, C*M*M).permute(0,2,1)
+	return F.fold(T, (I*M, J*M), M, stride=M)
+
+def indexTranslate(idx, grid_idx=None):
+	""" Translate stacked grid index (B, I, J, M*M, K)
+	to tiled-image index, (B, H, W, K)
+	"""
+	B, I, J, MM, K = idx.shape
+	M = int(np.sqrt(MM))
+	# each idx entries grid-index
+	grid_idx = torch.arange(0,I*J).repeat_interleave(M*M).reshape(1,I,J,M*M,1)
+	# grid index row and column (inter-window)
+	gi, gj = grid_idx//M, grid_idx%M
+	# window index row and column (intra-window)
+	wi, wj = idx//M, idx%M
+	# global index row and column
+	m, n = wi+gi*M, wj+ gj*M
+	# global flattened index
+	p = J*M*m + n
+	# stack to tile (unstack requires float)
+	return unstack(p.reshape(B,I,J,M,M,K).permute(0,5,1,2,3,4).float()).long().permute(0,2,3,1)
+

@@ -26,7 +26,7 @@ def visplot(images,
 		for jj in range(ncols):
 			ind = indfun(ii,jj)
 			if ind < len(images):
-				im = axs[ii,jj].imshow(images[ind].permute(1,2,0).squeeze(),
+				im = axs[ii,jj].imshow(images[ind].detach().permute(1,2,0).squeeze(),
 									   cmap   = 'gray',
 									   aspect = 'equal',
 									   interpolation = None,
