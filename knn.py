@@ -13,20 +13,20 @@ import sys
 def main():
 	x1 = imgLoad('Set12/04.png')
 	x2 = imgLoad('Set12/05.png')
-	x  = torch.cat([x1,x2])
-	#x = imgLoad('CBSD68/0018.png')
+	#x  = torch.cat([x1,x2])
+	x = imgLoad('CBSD68/0018.png')
 	#x = torch.arange(0, 10**2).reshape(1,1,10,10).float() 
-	#x = x
 
 	#print(x)
 
 	print(x.shape)
-	C = 1
+	C = x.shape[1]
 	Cout = 3
 	rank = 3
-	K = 2
+	K = 8
+	ks = 7
 	n = 165
-	M = 5
+	M = 32
 	h = x[:,:,n:n+2*M,n:n+2*M]
 
 	pad = utils.calcPad2D(*x.shape[2:], M)
@@ -35,75 +35,54 @@ def main():
 	B, C, H, W = xpad.shape
 	N = H*W
 
-	xs = utils.stack(xpad, M)               # (B, C, I, J, M, M)
-	I, J = xs.shape[2], xs.shape[3]
+	xs = utils.stack(xpad, M)               # (B, I, J, C, M, M) //(B, C, I, J, M, M)
+	I, J = xs.shape[1], xs.shape[2]
 	print(xs.shape)
 	xbs = utils.batch_stack(xs)             # (B*I*J, C, M, M)
 
-	ys = utils.unbatch_stack(xbs, xs.shape)
-	ypad = utils.unstack(ys)
-	y = utils.unpad(ypad, pad)
-	visplot(y, (1,len(y)))
-	plt.show()
-	sys.exit()
-
-	mask = localMask(M, M, 3)
-	G = graphAdj(xbs, mask) # (B*I*J, M*M, M*M)
-	edge = torch.topk(G, K, largest=False, sorted=True).indices.permute(0,2,1).reshape(-1,K,M,M) # (B*I*J,K,M,M) //(B*I*J, M*M, K)
-	edge = utils.unbatch_stack(edge, (B,K,I,J,M,M)) # (B,K,I,J,M,M)
-	edge_prime = utils.indexTranslate(edge) # (B,K,H,W)
-
-	print("edge")
-	#print(edge[0,:,0,0,0,0])
-	print(edge)
-	print("edge_prime")
-	print(edge_prime)
-	#print(edge_prime[0,:,0,0])
-
-	print("edge k=0")
-	print(edge[0,0])
-	print("edge k=1")
-	print(edge[0,1])
-
-	
-
-	#B = 1
-	#H, W = 3, 6
-	#K, M = 2, 3
-	#I, J = H//M, W//M
-
-	#nedge = torch.randint(0,M*M, (B,K,I,J,M,M))
-	#nedge_prime = utils.indexTranslate(nedge)
-	#print(nedge)
-	#print(nedge_prime)
-	#print(torch.arange(0,H*W).reshape(1,1,H,W))
-	#print(torch.arange(0,M*M).reshape(1,1,M,M))
-	#sys.exit()
-
-
-
-	#GConv = net.GraphConv(C,Cout)
-	#ypad = GConv(xpad, edge_prime.reshape(B, N, K))
+	#ys = utils.unbatch_stack(xbs, (I,J))
+	#ypad = utils.unstack(ys)
 	#y = utils.unpad(ypad, pad)
-
-	#a = y.min()
-	#b = y.max()
-	#y = (y - a)/(b-a)
-
-	im = plt.imshow((xpad[0]/xpad.max()).repeat(3,1,1).permute(1,2,0).squeeze())
-	#im = plt.imshow(xpad[0].permute(1,2,0).squeeze())
-	fig = plt.gcf()
-	ax = plt.gca()
-
-	handler = EventHandler(fig, ax, im, edge_prime)
-	plt.show()
-
-	#visplot(x, (1,len(x)))
+	#print(y.shape)
 	#visplot(y, (1,len(y)))
 	#plt.show()
+	#sys.exit()
+
+	mask = localMask(M, M, ks)
+	print("Making Graph...")
+	G = graphAdj(xbs, mask) # (B*I*J, M*M, M*M)
+	print("Done!")
+	# (B*I*J, M*M, K) -> (B*I*J, K, M*M) -> (B*I*J, K, M, M)
+	edge = torch.topk(G, K, largest=False).indices.permute(0,2,1).reshape(-1,K,M,M)
+	edge = utils.unbatch_stack(edge, (I,J)) # (B,I,J,K,M,M)
+	edge_t = utils.indexTranslate(edge) # (B,K,H,W)
+
+	# (B, K, N, C)
+	label, vertex_set = getLabelVertex(xpad, edge_t)
+	label_img, vS_img = label.reshape(B,K,H,W,C), vertex_set.reshape(B,K,H,W,C)
+
+	GConv = net.GraphConv(C,Cout, ks=ks)
+	ypad = GConv(xpad, edge_t)
+	y = utils.unpad(ypad, pad)
+
+	a = y.min()
+	b = y.max()
+	y = (y - a)/(b-a)
+
+	#im = plt.imshow((xpad[0]/xpad.max()).repeat(3,1,1).permute(1,2,0).squeeze())
+	#im = plt.imshow(xpad[0].permute(1,2,0).squeeze())
+	#fig = plt.gcf()
+	#ax = plt.gca()
+
+	#handler = EventHandler(fig, ax, im, edge_t, label_img, vS_img)
+	#plt.show()
+
+	#visplot(x, (1,len(x)))
+	visplot(torch.cat([x,y]), (2,len(y)))
+	plt.show()
 
 class EventHandler:
-	def __init__(self, fig, ax, im, edge):
+	def __init__(self, fig, ax, im, edge, label_img, vS_img):
 		fig.canvas.mpl_connect('button_press_event', self.onpress)
 		self.fig = fig
 		self.ax = ax
@@ -111,20 +90,25 @@ class EventHandler:
 		self.data = im.get_array()
 		self.edge = edge
 		self.cols = self.data.shape[1]
+		self.label_img = label_img
+		self.vS_img = vS_img
 
 	def onpress(self, event):
 		if event.inaxes!=self.ax:
 			return
 		self.im.set_array(self.data)
 		n, m = (int(round(c)) for c in (event.xdata, event.ydata))
-		print(m,n)
 		e    = self.edge[0,:,m,n]
 		em, en = e//self.cols, e%self.cols
 		hi_data = self.data.copy()
-		print("Edges:", em, en)
-		for k in range(len(e)):
-			hi_data[em[k],en[k],:] = np.array([255, 0, 0])
+		hi_data[em,en,:] = np.array([1,0,0])
+		print("correct vextor sets?")
+		print(torch.all(torch.tensor(self.data[em,en,:]) == self.vS_img[0,:,m,n,:]))
 		self.im.set_array(hi_data)
+		ell_norm = torch.norm(self.label_img[0,:,m,n], dim=1)
+		print("label norms:")
+		print(ell_norm.shape)
+		print(ell_norm)
 		#value = self.im.get_array()[xi,yi]
 		#color = self.im.cmap(self.im.norm(value))
 		plt.draw()
@@ -186,21 +170,26 @@ def localMask(H,W,M):
 	return mask
 
 def getLabelVertex(input, edge):
-	""" Return edge indices and labels of K-Regular-Graph derived from graph G
+	""" Return edge labels and verticies for each pixel in input, derived from edges.
+	Edges correspond to K-Regular Graph.
 	input: (B, C, H, W)
-	edge: output (B, N, K), edge indices
-	label: output (B, C, N, K)
-	vertex: output (B, C, N, K)
+	edge: input (B, K, H, W), edge indices
+	label, vertex_set: output (B, K, N, C)
 	"""
-	B, N, K = edge.shape
-	C = input.shape[1]
+	B, K, H, W = edge.shape
+	C, N = input.shape[1], H*W
 	v = input.reshape(B, C, N)
-	edge_tilde = edge.reshape(edge.shape[0],1,-1).repeat(1,C,1) # (B, C, NK)
-	# vS[i,j,k] = v[i, j, edge_tilde[i,j,k]]
-	vS = torch.gather(v, 2, edge_tilde) # (B, C, NK)
-	vertex = vS.reshape(*v.shape, K)
-	label = vertex - v.unsqueeze(-1) # (B, C, N, K)
-	return label, vertex
+	edge = edge.reshape(B, K, N)
+	# differentite indices in the batch dimension,
+	edge = edge + torch.arange(0,B).reshape(-1,1,1)*N
+	# put pixels in batch dimension
+	v  = v.permute(0,2,1).reshape(-1, C)          # (BN, C)
+	vS = torch.index_select(v, 0, edge.flatten()) # (BKN, C)
+	# correspond pixels to nonlocal neighbors
+	v  = v.reshape(B, N, C)
+	vS = vS.reshape(B, K, N, C)
+	label = vS - v.unsqueeze(1) # (B, K, N, C)
+	return label, vS
 
 if __name__ == "__main__":
 	main()

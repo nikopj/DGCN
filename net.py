@@ -19,20 +19,24 @@ class LowRankECC(nn.Module):
 		self.Cout  = Cout
 		self.delta = delta
 	
-	def forward(self, vertex, label):
+	def forward(self, h, edge):
 		"""
-		vertex: (B, Cin, N, K), K-neighbor vertex signals at pixel n
-		labels (B, Cin, N, K), edge-labels for each K-neighbors at pixel n
-		output (B, Cout, N), edge-conditioned non-local conv
+		h: (B, C, H, W) input image
+		edge: (B, K, H, W) indices of K connected verticies 
+		output: (B, Cout, H, W), edge-conditioned non-local conv
 		"""
-		B, C, N, K = vertex.shape
-		# move pixel and K neighbors into batch dimension
-		label_tilde  = label.reshape(B*K, C, N).reshape(B*K*N, C)
-		vertex_tilde = vertex.reshape(B*K, C, N).reshape(B*K*N, C)
-		B0 = B*K*N
+		B, K, H, W = edge.shape
+		N = H*W
+		# (B, K, N, C)
+		# get labels and vertex-set associated with each pixel
+		label, vertex = knn.getLabelVertex(h, edge)
+		# move pixels and K neighbors into batch dimension
+		label_tilde  = label.reshape(-1, self.Cin)
+		vertex_tilde = vertex.reshape(-1, self.Cin)
 		# layer-1: learned edge-label preprocess
 		theta  = self.act(self.FC0(label_tilde))
 		# layer-2: generate low-rank matrix for each neighbor based on edge-label
+		B0 = B*K*N
 		thetaL = self.FCL(theta).reshape(B0, self.Cout, self.rank)
 		thetaR = self.FCR(theta).reshape(B0, self.Cin,  self.rank)
 		kappa  = self.FCk(theta) 
@@ -42,7 +46,9 @@ class LowRankECC(nn.Module):
 		# stage-4: non-local attention term
 		gamma = torch.exp(-torch.sum(label_tilde**2, dim=1, keepdim=True)/self.delta).unsqueeze(-1)
 		# average over K neighbors
-		output = (gamma*output).reshape(B*K, self.Cout, N).reshape(B, self.Cout, N, K).mean(dim=3)
+		output = (gamma*output).reshape(B, K, N, self.Cout).mean(dim=1) # (B,N,Cout)
+		# reshape to image 
+		output = output.permute(0,2,1).reshape(B, self.Cout, H, W)
 		return output
 
 class GraphConv(nn.Module):
@@ -58,10 +64,8 @@ class GraphConv(nn.Module):
 	def forward(self, h, edge):
 		""" 
 		h: (B, C, H, W) batched input feature map for image shape (H, W)
-		edge: (B, N, K) edge indices for K-Regular-Graph of nearest neighbors at pixel n of h
+		edge: (B, K, H, W) edge indices for K-Regular-Graph of nearest neighbors for each pixel
 		"""
-		B, _, H, W = h.shape
-		label, vertex = knn.getLabelVertex(h, edge)
-		hNL  = self.NLAgg(vertex, label).reshape(B, -1, H, W)
+		hNL  = self.NLAgg(h, edge)
 		hL   = self.Conv(h)
 		return (hNL + hL)/2 + self.bias

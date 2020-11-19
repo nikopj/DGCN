@@ -42,64 +42,50 @@ def unpad(I, pad):
 
 def stack(T, M):
 	""" Stack I (B, C, H, W) into patches of size (MxM).
-	output: (B, C, I, J, H, W).
+	output: (B, I, J, C, H, W).
 	"""
-	return T.unfold(2,M,M).unfold(3,M,M)
+	# (B,C,H,W) -> unfold (B,C,I,J,M,M) -> permute (B,I,J,C,M,M)
+	return T.unfold(2,M,M).unfold(3,M,M).permute(0,2,3,1,4,5)
 
 def batch_stack(S):
-	""" Reorder stack (B, C, I, J, M, M) so that 
+	""" Reorder stack (B, I, J, C, M, M) so that 
 	patches are stacked in the batch dimension,
 	output: (B*I*J, C, H, W)
 	"""
-	C, M = S.shape[1], S.shape[-1]
-	return S.permute(0,2,3,1,4,5).reshape(-1,C,M,M)
+	C, M = S.shape[3], S.shape[-1]
+	return S.reshape(-1,C,M,M)
 
-def unbatch_stack(S, stack_shape):
+def unbatch_stack(S, grid_shape):
 	""" Reorder batched stack into non-batcheys)
-	(B*I*J, C, M, M) -> (B, C, I, J, M, M)
+	(B*I*J, C, M, M) -> (B, I, J, C, M, M)
 	"""
-	B, C, I, J, M, _ = stack_shape
-	return S.reshape(B, I, J, C, M, M).permute(0,3,1,2,4,5)
+	I, J = grid_shape
+	C, M = S.shape[1], S.shape[2]
+	return S.reshape(-1, I, J, C, M, M)
 
 def unstack(S):
 	""" Tile patches to form image
-	(B, C, I, J, M, M) -> (B, C, I*M, J*M)
+	(B, I, J, C, M, M) -> (B, C, I*M, J*M)
 	"""
-	B, C, I, J, M, _ = S.shape
-	T = S.permute(0,2,3,1,4,5).reshape(B, I*J, C*M*M).permute(0,2,1)
+	B, I, J, C, M, _ = S.shape
+	T = S.reshape(B, I*J, C*M*M).permute(0,2,1)
 	return F.fold(T, (I*M, J*M), M, stride=M)
 
 def indexTranslate(idx):
-	""" Translate stacked grid index (B, K, I, J, M, M)
-	to tiled-image index, (B, K, H, W)
+	""" Translate stacked grid index (B,I,J,K,M,M)
+	to tiled-image index, (B,K,H,W)
 	"""
-	B, K, I, J, M, _ = idx.shape
+	B, I, J, K, M, _ = idx.shape
 	# each idx entries grid-index
-	grid_idx = torch.arange(0,I*J).repeat_interleave(M*M).reshape(1,1,I,J,M,M).repeat_interleave(K, dim=1)
-	print("grid_idx")
-	print(grid_idx)
+	grid_idx = torch.arange(0,I*J).repeat_interleave(M*M).reshape(1,I,J,1,M,M).repeat_interleave(K, dim=3)
 	# grid index row and column (inter-window)
 	gi, gj = grid_idx//J, grid_idx%J
-	print("gi")
-	print(gi)
-	print("gj")
-	print(gj)
 	# window index row and column (intra-window)
 	wi, wj = idx//M, idx%M
-	print("wi")
-	print(wi)
-	print("wj")
-	print(wj)
 	# global index row and column
 	m, n = wi+gi*M, wj+gj*M
-	print("m")
-	print(m)
-	print("n")
-	print(n)
 	# global flattened index
 	p = J*M*m + n
-	print("p")
-	print(p)
 	# stack to tile (unstack requires float)
 	return unstack(p.float()).long()
 
