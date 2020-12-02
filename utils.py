@@ -1,6 +1,15 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from PIL import Image
+from torchvision.transforms.functional import to_tensor
+
+def imgLoad(path, gray=False):
+	""" Load batched tensor image (1,C,H,W) from file path.
+	"""
+	if gray:
+		return to_tensor(Image.open(path).convert('L'))[None,...]
+	return to_tensor(Image.open(path))[None,...]
 
 def calcPad1D(L, M):
 	""" Return symmetric pad sizes for length L 1D signal 
@@ -72,8 +81,8 @@ def unstack(S):
 	return F.fold(T, (I*M, J*M), M, stride=M)
 
 def indexTranslate(idx):
-	""" Translate stacked grid index (B,I,J,K,M,M)
-	to tiled-image index, (B,K,H,W)
+	""" Translate stacked grid (flattened MxM window) index (B,I,J,K,M,M)
+	to tiled-image (flattened HxW) index, (B,K,H,W)
 	"""
 	B, I, J, K, M, _ = idx.shape
 	# each idx entries grid-index

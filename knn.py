@@ -3,129 +3,69 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from PIL import Image
-from torchvision.transforms.functional import to_tensor
 import matplotlib.pyplot as plt
 import net
 import utils
-from visual import visplot
+from visual import visplot, visneighbors
 import sys
+
 def main():
-	x1 = imgLoad('Set12/04.png')
-	x2 = imgLoad('Set12/05.png')
+	x1 = utils.imgLoad('Set12/04.png')
+	x2 = utils.imgLoad('Set12/05.png')
 	#x  = torch.cat([x1,x2])
-	x = imgLoad('CBSD68/0018.png')
-	#x = torch.arange(0, 10**2).reshape(1,1,10,10).float() 
+	x = utils.imgLoad('CBSD68/0018.png')
 
-	#print(x)
-
-	print(x.shape)
 	C = x.shape[1]
 	Cout = 3
 	rank = 3
 	K = 8
-	ks = 7
-	n = 165
+	ks = 3
 	M = 32
-	h = x[:,:,n:n+2*M,n:n+2*M]
 
 	pad = utils.calcPad2D(*x.shape[2:], M)
-	xpad = utils.pad(x, pad)                # (B, C, H, W)
+	xpad = utils.pad(x, pad)  # (B, C, H, W)
 
 	B, C, H, W = xpad.shape
 	N = H*W
 
-	xs = utils.stack(xpad, M)               # (B, I, J, C, M, M) //(B, C, I, J, M, M)
-	I, J = xs.shape[1], xs.shape[2]
-	print(xs.shape)
-	xbs = utils.batch_stack(xs)             # (B*I*J, C, M, M)
-
-	#ys = utils.unbatch_stack(xbs, (I,J))
-	#ypad = utils.unstack(ys)
-	#y = utils.unpad(ypad, pad)
-	#print(y.shape)
-	#visplot(y, (1,len(y)))
-	#plt.show()
-	#sys.exit()
-
 	mask = localMask(M, M, ks)
-	print("Making Graph...")
-	G = graphAdj(xbs, mask) # (B*I*J, M*M, M*M)
-	print("Done!")
-	# (B*I*J, M*M, K) -> (B*I*J, K, M*M) -> (B*I*J, K, M, M)
-	edge = torch.topk(G, K, largest=False).indices.permute(0,2,1).reshape(-1,K,M,M)
-	edge = utils.unbatch_stack(edge, (I,J)) # (B,I,J,K,M,M)
-	edge_t = utils.indexTranslate(edge) # (B,K,H,W)
+	edge = windowedTopK(xpad, K, M, mask)
 
 	# (B, K, N, C)
-	label, vertex_set = getLabelVertex(xpad, edge_t)
+	label, vertex_set = getLabelVertex(xpad, edge)
 	label_img, vS_img = label.reshape(B,K,H,W,C), vertex_set.reshape(B,K,H,W,C)
 
 	GConv = net.GraphConv(C,Cout, ks=ks)
-	ypad = GConv(xpad, edge_t)
+	ypad = GConv(xpad, edge)
 	y = utils.unpad(ypad, pad)
 
 	a = y.min()
 	b = y.max()
 	y = (y - a)/(b-a)
 
-	#im = plt.imshow((xpad[0]/xpad.max()).repeat(3,1,1).permute(1,2,0).squeeze())
-	#im = plt.imshow(xpad[0].permute(1,2,0).squeeze())
-	#fig = plt.gcf()
-	#ax = plt.gca()
+	#visplot(torch.cat([x,y]), (2,len(y)))
 
-	#handler = EventHandler(fig, ax, im, edge_t, label_img, vS_img)
-	#plt.show()
-
-	#visplot(x, (1,len(x)))
-	visplot(torch.cat([x,y]), (2,len(y)))
+	fig, handler = visneighbors(xpad, edge, local_area=ks)
 	plt.show()
 
-class EventHandler:
-	def __init__(self, fig, ax, im, edge, label_img, vS_img):
-		fig.canvas.mpl_connect('button_press_event', self.onpress)
-		self.fig = fig
-		self.ax = ax
-		self.im = im
-		self.data = im.get_array()
-		self.edge = edge
-		self.cols = self.data.shape[1]
-		self.label_img = label_img
-		self.vS_img = vS_img
-
-	def onpress(self, event):
-		if event.inaxes!=self.ax:
-			return
-		self.im.set_array(self.data)
-		n, m = (int(round(c)) for c in (event.xdata, event.ydata))
-		e    = self.edge[0,:,m,n]
-		em, en = e//self.cols, e%self.cols
-		hi_data = self.data.copy()
-		hi_data[em,en,:] = np.array([1,0,0])
-		print("correct vextor sets?")
-		print(torch.all(torch.tensor(self.data[em,en,:]) == self.vS_img[0,:,m,n,:]))
-		self.im.set_array(hi_data)
-		ell_norm = torch.norm(self.label_img[0,:,m,n], dim=1)
-		print("label norms:")
-		print(ell_norm.shape)
-		print(ell_norm)
-		#value = self.im.get_array()[xi,yi]
-		#color = self.im.cmap(self.im.norm(value))
-		plt.draw()
-
-def windowedTopK(h, M, K, mask):
+def windowedTopK(h, K, M, mask):
 	""" Returns top K feature vector indices for 
 	h: (B, C, H, W) input feature
 	M: window side-length
 	mask: (H*W, H*W) Graph mask.
-	output: (B, N, K) edge indices
+	output: (B, K, H, W) K edge indices (of flattened image) for each pixel
 	"""
-	v = "yo"
-
-def imgLoad(path, gray=False):
-	if gray:
-		return to_tensor(Image.open(path).convert('L'))[None,...]
-	return to_tensor(Image.open(path))[None,...]
+	# stack image windows
+	hs = utils.stack(h, M)          # (B,I,J,C,M,M)
+	I, J = hs.shape[1], hs.shape[2]
+	# move stack to match dimension to build batched Graph Adjacency matrices
+	hbs = utils.batch_stack(hs)     # (B*I*J,C,M,M)
+	G = graphAdj(hbs, mask)         # (B*I*J, M*M, M*M)
+	# find topK in each window, unbatch the stack, translate window-index to tile index
+	# (B*I*J,M*M,K) -> (B*I*J,K,M*M) -> (B*I*J, K, M, M)
+	edge = torch.topk(G, K, largest=False).indices.permute(0,2,1).reshape(-1,K,M,M)
+	edge = utils.unbatch_stack(edge, (I,J)) # (B,I,J,K,M,M)
+	return utils.indexTranslate(edge) # (B,K,H,W)
 
 def graphAdj(h, mask):
 	""" ||h_j - h_i||^2 L2 similarity matrix formation

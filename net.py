@@ -43,7 +43,7 @@ class LowRankECC(nn.Module):
 		# stage-3: apply low-rank matrix
 		# (Cout, 1) = (Cout, rank) @ diag(rank, 1) @ (rank, Cin), batch supressed
 		output = thetaL @ (kappa.unsqueeze(-1) * (thetaR.transpose(1,2) @ vertex_tilde.unsqueeze(-1)))
-		# stage-4: non-local attention term
+		# stage-4: non-local attention term (B0,1,1)
 		gamma = torch.exp(-torch.sum(label_tilde**2, dim=1, keepdim=True)/self.delta).unsqueeze(-1)
 		# average over K neighbors
 		output = (gamma*output).reshape(B, K, N, self.Cout).mean(dim=1) # (B,N,Cout)
