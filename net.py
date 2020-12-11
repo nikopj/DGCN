@@ -13,12 +13,16 @@ class DGCN(nn.Module):
 	"""
 	def __init__(self, nic=1, nf=16, iters=3, window_size=32, topK=8, **kwargs):
 		super(DGCN, self).__init__()
-		self.GClayer0 = GClayer(nic, nf, window_size=32, topK=8, **kwargs)
-		self.GClayer = nn.ModuleList([GClayer(nf,nf,window_size=32,topK=8,**kwargs) for _ in range(iters-1)])
-		self.GCout = GraphConv(nf,nic,**kwargs)
-		self.local_mask = knn.localMask(window_size, window_size, 3)
-		self.window_size = window_size
-		self.topK = topK
+		gckwargs = {"window_size": window_size, "topK": top_K}
+		if nf % 3 != 0:
+			raise ValueError(f"Expected nf {nf} to be divisible by 3.")
+		self.INCONV = nn.ModuleList([nn.Conv2d(nic,nf//3,ks,padding=(ks-1)//2,padding_mode='reflect') for ks in [3,5,7]])
+		self.PPCONV = nn.ModuleList([GClayer(nf//3,ks,block_type="PRE",**gckwargs,**kwargs) for ks in [3,5,7]])
+		self.LPF = nn.ModuleList([GClayer(nf,3,block_type="LPF",**gckwargs,**kwargs) for _ in range(iters)])
+		self.HPF = GClayer(nf,3,block_type="HPF",**gckwargs,**kwargs)
+		### write ALPHAS AND BETAS
+		self.GCout = GraphConv(nf,nic,3,**kwargs)
+		self.wtkargs = (topK, window_size, knn.localMask(window_size, window_size, 3)) # windowedTopK args
 		self.iters = iters
 
 	def pre_process(self, x):
@@ -44,31 +48,39 @@ class DGCN(nn.Module):
 
 	def forward(self, x):
 		x, params = self.pre_process(x)
-		x = self.GClayer0(x)
+		x = torch.cat([self.PPCONV[i](self.INCONV[i](x)) for i in range(3)], dim=1)
 		for i in range(self.iters-1):
 			x = self.GClayer[i](x)
-		edge = knn.windowedTopK(x, self.topK, self.window_size, self.local_mask)
+		edge = knn.windowedTopK(x, *self.wtkargs)
 		x = self.GCout(x, edge)
 		x = self.post_process(x, params)
 		return x
 		
 class GClayer(nn.Module):
-	def __init__(self, nic, noc, window_size=32, topK=8, **kwargs):
+	def __init__(self,nf,ks=3,window_size=32,topK=8,block_type="LPF",pre_iters=1,post_iters=3,**kwargs):
 		super(GClayer, self).__init__()
-		self.window_size = window_size
-		self.topK = topK
-		self.local_mask = knn.localMask(window_size, window_size, 3)
-		self.Conv = nn.Conv2d(nic, noc, 3, padding=1, padding_mode='reflect', bias=True)
-		self.BN0 = nn.BatchNorm2d(noc)
-		self.BN = nn.ModuleList([nn.BatchNorm2d(noc) for _ in range(3)])
-		self.GConv = nn.ModuleList([GraphConv(noc, noc, **kwargs) for _ in range(3)])
+		self.wtkargs = (topK, window_size, knn.localMask(window_size,window_size,ks)) # windowedTopK args
+		self.Conv  = nn.ModuleList([nn.Conv2d(nf,nf,ks,padding=(ks-1)//2,padding_mode='reflect') for _ in range(pre_iters)])
+		if block_type!="PRE":
+			self.BNpre  = nn.ModuleList([nn.BatchNorm2d(nf) for _ in range(pre_iters)])
+		if block_type=="LPF":
+			self.BNpost = nn.ModuleList([nn.BatchNorm2d(nf) for _ in range(post_iters)])
+		self.GConv = nn.ModuleList([GraphConv(nf,nf,ks,**kwargs) for _ in range(post_iters)])
+		self.pre_iters  = pre_iters
+		self.post_iters = post_iters
+		self.block_type = block_type
 
 	def forward(self, x):
-		x = F.relu(self.BN0(self.Conv(x)))
-		edge = knn.windowedTopK(x, self.topK, self.window_size, self.local_mask)
-		for i in range(3):
+		for i in range(self.pre_iters):
+			x = self.Conv[i](x)
+			if block_type!="PRE":
+				x = self.BNpre[i](x)
+			x = F.relu(x)
+		edge = knn.windowedTopK(x, *self.wtkargs)
+		for i in range(self.post_iters):
 			x = self.GConv[i](x, edge)
-			x = self.BN[i](x)
+			if block_type=="LPF":
+				x = self.BNpost[i](x)
 			x = F.relu(x)
 		return x
 
@@ -94,12 +106,17 @@ class GraphConv(nn.Module):
 class LowRankECC(nn.Module):
 	""" Low Rank Edge-Conditioned Convolution, 2-layer MLP
 	"""
-	def __init__(self, Cin, Cout, rank=10, delta=10, leak=1e-2):
+	def __init__(self, Cin, Cout, rank=12, delta=10, leak=1e-2, circ_rows=3):
 		super(LowRankECC, self).__init__()
 		self.FC0 = nn.Linear(Cin, Cin)       # edge-label preprocesser
-		self.FCL = nn.Linear(Cin, rank*Cout) # left vector generator
-		self.FCR = nn.Linear(Cin, rank*Cin)  # right vector generator
-		self.FCk = nn.Linear(Cin, rank)      # scale generator
+		if circ_rows is None:
+			Dense = nn.Linear; dkwargs = {}
+		else:
+			Dense = CircDense; dkwargs = {"m": circ_rows}
+		self.FCL = Dense(Cin, rank*Cout, **dkwargs) # left vector generator
+		self.FCR = Dense(Cin, rank*Cin,  **dkwargs) # right vector generator
+		self.FCk = nn.Linear(Cin, rank)             # scale generator
+		#self.FCk = Dense(Cin, rank, **dkwargs)      # scale generator
 		self.act = nn.LeakyReLU(leak)
 		self.rank  = rank
 		self.Cin   = Cin
@@ -137,3 +154,27 @@ class LowRankECC(nn.Module):
 		# reshape to image 
 		output = output.permute(0,2,1).reshape(B, self.Cout, H, W)
 		return output
+
+class CircDense(nn.Module):
+	""" Circulant approximation of a dense matrix
+	Treat this model as a nn.Linear module, except m determines the number 
+	of circulant rows used (m=1 means a linear matrix). 
+	Input (B, Cin)
+	Output (B, Cout)
+	"""
+	def __init__(self, Cin, Cout, m=3):
+		super(CircDense, self).__init__()
+		if Cout % m != 0:
+			raise ValueError(f"Expected Cout {Cout} to be divisible by m {m}.")
+		self.weight = nn.Parameter(torch.randn(Cout//m,1,Cin))
+		self.m = m
+		self.Cout = Cout
+
+	def forward(self, x):
+		xpad = F.pad(x.unsqueeze(1), (0,self.m-1), mode='circular')
+		return F.conv1d(xpad, self.weight).view(-1,self.Cout)
+
+
+
+
+

@@ -1,11 +1,12 @@
 {
 "model": {
 	"nic": 1,
-	"nf": 64,
-	"iters": 4,
+	"nf": 16,
+	"iters": 2,
 	"window_size": 32,
 	"topK": 8,
-	"rank": 10
+	"rank": 9,
+	"circ_rows": 3
 },
 "paths": {
 	"save": "Models/DGCN-T0",
@@ -13,7 +14,7 @@
 },
 "train": {
 	"loaders": {
-		"batch_size": 8,
+		"batch_size": 1,
 		"crop_size": 32,
 		"load_color": false,
 		"trn_path_list": ["CBSD432"],
