@@ -121,7 +121,7 @@ def getLabelVertex(input, edge):
 	v = input.reshape(B, C, N)
 	edge = edge.reshape(B, K, N)
 	# differentite indices in the batch dimension,
-	edge = edge + torch.arange(0,B).reshape(-1,1,1)*N
+	edge = edge + torch.arange(0,B,device=input.device).reshape(-1,1,1)*N
 	# put pixels in batch dimension
 	v  = v.permute(0,2,1).reshape(-1, C)          # (BN, C)
 	vS = torch.index_select(v, 0, edge.flatten()) # (BKN, C)

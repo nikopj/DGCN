@@ -14,13 +14,21 @@ def main(args):
 	"""
 	model_args, train_args, paths = [args[item] for item in ['model','train','paths']]
 	loaders = getDataLoaders(**train_args['loaders'])
-	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	ngpu = torch.cuda.device_count() 
+	device = torch.device("cuda:0" if ngpu > 0 else "cpu")
 	print(f"Using device {device}.")
+	if ngpu > 1:
+		print(f"Using {ngpu} GPUs.")
+		data_parallel = True
+	else:
+		data_parallel = False
 	model, opt, sched, epoch0 = initModel(model_args, train_args, paths, device=device)
 	fit(model, opt, loaders,
 	    sched       = sched, 
 	    save_dir    = paths['save'],
 	    start_epoch = epoch0 + 1,
+		device      = device,
+		data_parallel = data_parallel,
 	    **train_args['fit'],
 	    epoch_fun   = lambda epoch_num: saveArgs(args, epoch_num))
 

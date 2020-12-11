@@ -1,14 +1,14 @@
 {
     "model": {
-        "iters": 2,
-        "nf": 16,
+        "iters": 4,
+        "nf": 64,
         "nic": 1,
         "rank": 10,
         "topK": 8,
         "window_size": 32
     },
     "paths": {
-        "ckpt": "Models/DGCN-T0/1.ckpt",
+        "ckpt": "Models/DGCN-T0/4.ckpt",
         "save": "Models/DGCN-T0"
     },
     "train": {
@@ -22,8 +22,8 @@
             "verbose": true
         },
         "loaders": {
-            "batch_size": 1,
-            "crop_size": 64,
+            "batch_size": 8,
+            "crop_size": 32,
             "load_color": false,
             "trn_path_list": [
                 "CBSD432"

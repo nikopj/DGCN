@@ -95,7 +95,7 @@ def indexTranslate(idx):
 	"""
 	B, I, J, K, M, _ = idx.shape
 	# each idx entries grid-index
-	grid_idx = torch.arange(0,I*J).repeat_interleave(M*M).reshape(1,I,J,1,M,M).repeat_interleave(K, dim=3)
+	grid_idx = torch.arange(0,I*J,device=idx.device).repeat_interleave(M*M).reshape(1,I,J,1,M,M).repeat_interleave(K, dim=3)
 	# grid index row and column (inter-window)
 	gi, gj = grid_idx//J, grid_idx%J
 	# window index row and column (intra-window)
