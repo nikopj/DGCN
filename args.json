@@ -1,0 +1,40 @@
+{
+"model": {
+	"nic": 1,
+	"nf": 16,
+	"iters": 2,
+	"window_size": 32,
+	"topK": 8,
+	"rank": 10
+},
+"paths": {
+	"save": "Models/DGCN-T0",
+	"ckpt": null
+},
+"train": {
+	"loaders": {
+		"batch_size": 1,
+		"crop_size": 64,
+		"load_color": false,
+		"trn_path_list": ["CBSD432"],
+		"val_path_list": ["CBSD432"],
+		"tst_path_list": ["CBSD68"]
+	},
+	"fit": {
+		"epochs": 5,
+		"noise_std": 25,
+		"val_freq": 5,
+		"save_freq": 5,
+		"backtrack_thresh": 1,
+		"verbose": true,
+		"clip_grad": 5e-2
+	},
+	"opt": {
+		"lr": 1e-3
+	},
+	"sched": {
+		"gamma": 0.8,
+		"step_size": 5
+	}
+}
+}

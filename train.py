@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
-import os
+import os, sys, json
 from tqdm import tqdm
 from pprint import pprint
 import numpy as np
 import torch
 import torch.nn as nn
+from net import DGCN
+from data import getDataLoaders
+from utils import awgn
 
 def main(args):
 	""" Given argument dictionary, load data, initialize model, and fit model.
 	"""
-	model_args, fit_args, paths = [args[item] for item in ['model','fit','path']]
-	loaders = getDataLoaders(**fit_args)
+	model_args, train_args, paths = [args[item] for item in ['model','train','paths']]
+	loaders = getDataLoaders(**train_args['loaders'])
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	print(f"Using device {device}.")
-	model, opt, sched, epoch0 = initModel(model_args, fit_args, paths, device=device)
-	fit(model, opt, loaders, fit_args['epochs'],
+	model, opt, sched, epoch0 = initModel(model_args, train_args, paths, device=device)
+	fit(model, opt, loaders,
 	    sched       = sched, 
 	    save_dir    = paths['save'],
 	    start_epoch = epoch0 + 1,
-	    **fit_args,
+	    **train_args['fit'],
 	    epoch_fun   = lambda epoch_num: saveArgs(args, epoch_num))
 
 def fit(model, opt, loaders,
@@ -31,10 +34,10 @@ def fit(model, opt, loaders,
 	    noise_std = 25,
 	    verbose = True,
 	    val_freq  = 1,
-	    save_freq = 1
+	    save_freq = 1,
 	    data_parallel = False,
 		epoch_fun = None,
-		backtrack_thresh = 2):
+		backtrack_thresh = 1):
 	""" fit model to training data.
 	"""
 	print(f"fit: using device {device}")
@@ -66,7 +69,7 @@ def fit(model, opt, loaders,
 						if clip_grad is not None:
 							nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
 						opt.step()
-						model.project()
+						#model.project()
 				loss = loss.item()
 				if verbose:
 					total_norm = grad_norm(model.parameters())
@@ -140,12 +143,14 @@ def initModel(model_args, fit_args, paths, device=torch.device("cpu")):
 	ckpt_path = paths['ckpt']
 	if ckpt_path is not None:
 		model, opt, sched, epoch0 = loadCkpt(ckpt_path, model, opt, sched)
+	else:
+		epoch0 = 0
 	print("Current Learning Rate(s):")
 	for param_group in opt.param_groups:
 		print(param_group['lr'])
 	total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 	print(f"Total Number of Parameters: {total_params:,}")
-	return model, opt, sched, e0
+	return model, opt, sched, epoch0
 
 def saveCkpt(path, model=None,epoch=None,opt=None,sched=None):
 	""" Save Checkpoint.

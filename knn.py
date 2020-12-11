@@ -23,7 +23,7 @@ def main():
 	M = 32
 
 	pad = utils.calcPad2D(*x.shape[2:], M)
-	xpad = utils.pad(x, pad)  # (B, C, H, W)
+	xpad = F.pad(x, pad, mode='reflect')  # (B, C, H, W)
 
 	B, C, H, W = xpad.shape
 	N = H*W

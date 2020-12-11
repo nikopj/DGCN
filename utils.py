@@ -11,6 +11,20 @@ def imgLoad(path, gray=False):
 		return to_tensor(Image.open(path).convert('L'))[None,...]
 	return to_tensor(Image.open(path))[None,...]
 
+def awgn(input, noise_std):
+	""" Additive White Gaussian Noise
+	y: clean input image
+	noise_std: (tuple) noise_std of batch size N is uniformly sampled 
+	           between noise_std[0] and noise_std[1]. Expected to be in interval
+			   [0,255]
+	"""
+	if not isinstance(noise_std, (list, tuple)):
+		sigma = noise_std
+	else: # uniform sampling of sigma
+		sigma = noise_std[0] + \
+		       (noise_std[1] - noise_std[0])*torch.rand(len(input),1,1,1, device=input.device)
+	return input + torch.randn_like(input) * (sigma/255)
+
 def calcPad1D(L, M):
 	""" Return symmetric pad sizes for length L 1D signal 
 	to be divided into non-overlapping windows of size M.
@@ -31,11 +45,6 @@ def calcPad2D(H, W, M):
 	output: (padding_left, padding_right, padding_top, padding_bottom)
 	"""
 	return (*calcPad1D(W,M), *calcPad1D(H,M))
-
-def pad(I, pad):
-	""" Reflection padding.
-	"""
-	return F.pad(I, pad, mode='reflect')
 
 def unpad(I, pad):
 	""" Remove padding from 2D signal I.
