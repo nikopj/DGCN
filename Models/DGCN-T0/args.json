@@ -1,29 +1,31 @@
 {
     "model": {
-        "iters": 4,
-        "nf": 64,
+        "circ_rows": 3,
+        "iters": 1,
+        "leak": 0.2,
+        "nf": 18,
         "nic": 1,
-        "rank": 10,
+        "rank": 3,
         "topK": 8,
-        "window_size": 32
+        "window_size": 42
     },
     "paths": {
-        "ckpt": "Models/DGCN-T0/4.ckpt",
+        "ckpt": "Models/DGCN-T0/5.ckpt",
         "save": "Models/DGCN-T0"
     },
     "train": {
         "fit": {
             "backtrack_thresh": 1,
-            "clip_grad": 0.05,
+            "clip_grad": null,
             "epochs": 5,
             "noise_std": 25,
-            "save_freq": 5,
+            "save_freq": 1,
             "val_freq": 5,
             "verbose": true
         },
         "loaders": {
-            "batch_size": 8,
-            "crop_size": 32,
+            "batch_size": 1,
+            "crop_size": 42,
             "load_color": false,
             "trn_path_list": [
                 "CBSD432"
@@ -36,7 +38,7 @@
             ]
         },
         "opt": {
-            "lr": 0.001
+            "lr": 0.0001
         },
         "sched": {
             "gamma": 0.8,

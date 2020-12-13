@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 def visplot(images,
-			grid_shape,
+			grid_shape=None,
 			crange = (None,None),
 			primary_axis = 0,
 			titles   = None,
@@ -12,6 +12,8 @@ def visplot(images,
 	Plots array of images in grid with shared axes.
 	Very nice for zooming.
 	"""
+	if grid_shape is None:
+		grid_shape = (1,len(images))
 	fig, axs = plt.subplots(*grid_shape,
 							sharex='all',
 							sharey='all',
@@ -66,6 +68,8 @@ def visneighbors(image, edge, local_area=None):
 	Local neighborhood optionally displayed given side-length of local area (scalar).
 	WARNING: Must set variables of return statement for ClickHandler to work!
 	"""
+	if image.shape[1]==1:
+		image = image.repeat(1,3,1,1)
 	fig = plt.figure()
 	im  = plt.imshow(image[0].detach().permute(1,2,0).squeeze())
 	ax  = plt.gca()

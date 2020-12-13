@@ -1,12 +1,13 @@
 {
 "model": {
 	"nic": 1,
-	"nf": 16,
-	"iters": 2,
-	"window_size": 32,
+	"nf": 18,
+	"iters": 1,
+	"window_size": 42,
 	"topK": 8,
-	"rank": 9,
-	"circ_rows": 3
+	"rank": 3,
+	"circ_rows": 3,
+	"leak": 0.2
 },
 "paths": {
 	"save": "Models/DGCN-T0",
@@ -15,7 +16,7 @@
 "train": {
 	"loaders": {
 		"batch_size": 1,
-		"crop_size": 32,
+		"crop_size": 42,
 		"load_color": false,
 		"trn_path_list": ["CBSD432"],
 		"val_path_list": ["CBSD432"],
@@ -25,13 +26,13 @@
 		"epochs": 5,
 		"noise_std": 25,
 		"val_freq": 5,
-		"save_freq": 5,
+		"save_freq": 1,
 		"backtrack_thresh": 1,
 		"verbose": true,
-		"clip_grad": 5e-2
+		"clip_grad": null
 	},
 	"opt": {
-		"lr": 1e-3
+		"lr": 1e-4
 	},
 	"sched": {
 		"gamma": 0.8,

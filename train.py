@@ -150,6 +150,7 @@ def initModel(model_args, fit_args, paths, device=torch.device("cpu")):
 	sched = torch.optim.lr_scheduler.StepLR(opt, **fit_args['sched'])
 	ckpt_path = paths['ckpt']
 	if ckpt_path is not None:
+		print(f"Initializing model from {ckpt_path} ...")
 		model, opt, sched, epoch0 = loadCkpt(ckpt_path, model, opt, sched)
 	else:
 		epoch0 = 0

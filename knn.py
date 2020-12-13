@@ -13,7 +13,8 @@ def main():
 	x1 = utils.imgLoad('Set12/04.png')
 	x2 = utils.imgLoad('Set12/05.png')
 	#x  = torch.cat([x1,x2])
-	x = utils.imgLoad('CBSD68/0018.png')
+	#x = utils.imgLoad('CBSD68/0018.png')
+	x = utils.imgLoad('Set12/04.png')
 
 	C = x.shape[1]
 	Cout = 3
