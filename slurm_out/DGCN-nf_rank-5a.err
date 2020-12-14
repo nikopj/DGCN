@@ -1,43 +1,0 @@
-  0%|          | 0/432 [00:00<?, ?it/s]  7%|▋         | 29/432 [00:00<00:01, 288.24it/s] 14%|█▍        | 62/432 [00:00<00:01, 298.85it/s] 22%|██▏       | 95/432 [00:00<00:01, 305.09it/s] 29%|██▉       | 126/432 [00:00<00:01, 304.49it/s] 37%|███▋      | 159/432 [00:00<00:00, 311.11it/s] 44%|████▍     | 192/432 [00:00<00:00, 314.32it/s] 52%|█████▏    | 225/432 [00:00<00:00, 318.80it/s] 60%|█████▉    | 258/432 [00:00<00:00, 320.55it/s] 67%|██████▋   | 291/432 [00:00<00:00, 322.52it/s] 75%|███████▍  | 323/432 [00:01<00:00, 321.61it/s] 82%|████████▏ | 356/432 [00:01<00:00, 321.57it/s] 90%|█████████ | 389/432 [00:01<00:00, 321.76it/s] 98%|█████████▊| 422/432 [00:01<00:00, 322.79it/s]100%|██████████| 432/432 [00:01<00:00, 320.02it/s]
-  0%|          | 0/68 [00:00<?, ?it/s] 31%|███       | 21/68 [00:00<00:00, 194.02it/s] 62%|██████▏   | 42/68 [00:00<00:00, 196.01it/s] 93%|█████████▎| 63/68 [00:00<00:00, 198.46it/s]100%|██████████| 68/68 [00:00<00:00, 200.20it/s]
-  0%|          | 0/12 [00:00<?, ?it/s]100%|██████████| 12/12 [00:00<00:00, 421.21it/s]
-TRAIN-E1:   0%|          | 0/54 [00:00<?, ?it/s]Traceback (most recent call last):
-  File "train.py", line 210, in <module>
-    main(args)
-  File "train.py", line 33, in main
-    epoch_fun   = lambda epoch_num: saveArgs(args, epoch_num))
-  File "train.py", line 71, in fit
-    output = nn.parallel.data_parallel(model, noisy_batch)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/parallel/data_parallel.py", line 210, in data_parallel
-    outputs = parallel_apply(replicas, inputs, module_kwargs, used_device_ids)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/parallel/parallel_apply.py", line 85, in parallel_apply
-    output.reraise()
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/_utils.py", line 395, in reraise
-    raise self.exc_type(msg)
-RuntimeError: Caught RuntimeError in replica 0 on device 0.
-Original Traceback (most recent call last):
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/parallel/parallel_apply.py", line 60, in _worker
-    output = module(*input, **kwargs)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/modules/module.py", line 550, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/scratch/npj226/DGCN/net.py", line 59, in forward
-    z = z + self.LPF[i](z)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/modules/module.py", line 550, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/scratch/npj226/DGCN/net.py", line 98, in forward
-    x = self.GConv[i](x, edge)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/modules/module.py", line 550, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/scratch/npj226/DGCN/net.py", line 121, in forward
-    hNL  = self.NLAgg(h, edge)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/modules/module.py", line 550, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/scratch/npj226/DGCN/net.py", line 170, in forward
-    thetaL = self.FCL(theta).reshape(B0, self.Cout, self.rank)
-  File "/home/npj226/py3env/lib/python3.7/site-packages/torch/nn/modules/module.py", line 550, in __call__
-    result = self.forward(*input, **kwargs)
-  File "/scratch/npj226/DGCN/net.py", line 201, in forward
-    return F.conv1d(xpad, self.weight).view(-1,self.Cout)
-RuntimeError: CUDA out of memory. Tried to allocate 320.00 MiB (GPU 0; 11.17 GiB total capacity; 10.44 GiB already allocated; 115.25 MiB free; 10.75 GiB reserved in total by PyTorch)
-
-TRAIN-E1:   0%|          | 0/54 [00:03<?, ?it/s]
