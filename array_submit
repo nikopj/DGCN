@@ -1,0 +1,37 @@
+#!/bin/bash
+
+ver="${4:-a}"
+
+for ((i=$2; i<=$3; i++)); do
+	model="${1}-$i"
+	echo "${model}${ver}"
+	cp args/${model}.json args/${model}${ver}.json
+	sed "s/${model}/${model}${ver}/" args/${model}.json > args/${model}${ver}.json
+done
+
+cat > array_job.sh << EOF
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=2
+#SBATCH --time=48:00:00
+#SBATCH --mem=4GB
+#SBATCH --array=$2-$3
+#SBATCH --job-name=${1}-${ver}
+#SBATCH --mail-type=END
+#SBATCH --mail-user=npj226@nyu.edu
+#SBATCH --output=slurm_out/${1}-%a${ver}.out
+#SBATCH --error=slurm_out/${1}-%a${ver}.err
+  
+module load cuda/10.1.105
+module load cudnn/10.1v7.6.5.32
+
+source $HOME/py3env/bin/activate
+cd /scratch/npj226/DGCN
+
+python train.py args/${1}-\${SLURM_ARRAY_TASK_ID}${ver}.json
+EOF
+
+sbatch array_job.sh
+

@@ -61,7 +61,9 @@ class DGCN(nn.Module):
 		edge = knn.windowedTopK(z, *self.wtkargs)
 		z = self.GCout(z, edge)
 		x = self.post_process(x+z, params)
-		return x, edge
+		if ret_edge:
+			return x, edge
+		return x
 		
 class GClayer(nn.Module):
 	def __init__(self,nf,ks=3,window_size=32,topK=8,block_type="LPF",leak=0.2,**kwargs):

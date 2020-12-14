@@ -1,0 +1,84 @@
+{'model': {'circ_rows': 3,
+           'iters': 4,
+           'leak': 0.2,
+           'nf': 81,
+           'nic': 1,
+           'rank': 11,
+           'topK': 8,
+           'window_size': 32},
+ 'paths': {'ckpt': None, 'save': 'Models/DGCN-nf_rank-2a'},
+ 'train': {'fit': {'backtrack_thresh': 1,
+                   'clip_grad': 1,
+                   'epochs': 16000,
+                   'noise_std': 25,
+                   'save_freq': 50,
+                   'val_freq': 50,
+                   'verbose': False},
+           'loaders': {'batch_size': 4,
+                       'crop_size': 32,
+                       'load_color': False,
+                       'trn_path_list': ['CBSD432'],
+                       'tst_path_list': ['CBSD68'],
+                       'val_path_list': ['Set12']},
+           'opt': {'lr': 0.0001},
+           'sched': {'gamma': 0.95, 'step_size': 200}}}
+Loading ['CBSD432']:
+Loading ['CBSD68']:
+Loading ['Set12']:
+Using device cuda:0.
+Using 2 GPUs.
+Current Learning Rate(s):
+0.0001
+Total Number of Parameters: 2,305,788
+fit: using device cuda:0
+Saving initialization to 0.ckpt
+TRAIN PSNR: 21.985 dB
+TRAIN PSNR: 24.314 dB
+TRAIN PSNR: 25.324 dB
+TRAIN PSNR: 25.938 dB
+TRAIN PSNR: 26.358 dB
+TRAIN PSNR: 26.545 dB
+TRAIN PSNR: 27.004 dB
+TRAIN PSNR: 26.924 dB
+TRAIN PSNR: 27.029 dB
+TRAIN PSNR: 27.190 dB
+TRAIN PSNR: 27.144 dB
+TRAIN PSNR: 27.214 dB
+TRAIN PSNR: 27.438 dB
+TRAIN PSNR: 27.414 dB
+TRAIN PSNR: 27.679 dB
+TRAIN PSNR: 27.669 dB
+TRAIN PSNR: 27.711 dB
+TRAIN PSNR: 27.618 dB
+TRAIN PSNR: 27.736 dB
+TRAIN PSNR: 27.782 dB
+TRAIN PSNR: 27.740 dB
+TRAIN PSNR: 27.841 dB
+TRAIN PSNR: 27.766 dB
+TRAIN PSNR: 27.877 dB
+TRAIN PSNR: 27.811 dB
+TRAIN PSNR: 27.763 dB
+TRAIN PSNR: 27.844 dB
+TRAIN PSNR: 27.853 dB
+TRAIN PSNR: 27.966 dB
+TRAIN PSNR: 27.766 dB
+TRAIN PSNR: 28.025 dB
+TRAIN PSNR: 27.860 dB
+TRAIN PSNR: 27.901 dB
+TRAIN PSNR: 28.111 dB
+TRAIN PSNR: 28.023 dB
+TRAIN PSNR: 28.063 dB
+TRAIN PSNR: 28.050 dB
+TRAIN PSNR: 28.200 dB
+TRAIN PSNR: 28.126 dB
+TRAIN PSNR: 28.112 dB
+TRAIN PSNR: 28.293 dB
+TRAIN PSNR: 28.104 dB
+TRAIN PSNR: 27.995 dB
+TRAIN PSNR: 28.088 dB
+TRAIN PSNR: 28.355 dB
+TRAIN PSNR: 27.943 dB
+TRAIN PSNR: 28.187 dB
+TRAIN PSNR: 28.152 dB
+TRAIN PSNR: 28.155 dB
+TRAIN PSNR: 28.010 dB

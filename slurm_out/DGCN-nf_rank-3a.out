@@ -1,0 +1,34 @@
+{'model': {'circ_rows': 3,
+           'iters': 4,
+           'leak': 0.2,
+           'nf': 135,
+           'nic': 1,
+           'rank': 11,
+           'topK': 8,
+           'window_size': 42},
+ 'paths': {'ckpt': None, 'save': 'Models/DGCN-nf_rank-3a'},
+ 'train': {'fit': {'backtrack_thresh': 1,
+                   'clip_grad': 1,
+                   'epochs': 16000,
+                   'noise_std': 25,
+                   'save_freq': 50,
+                   'val_freq': 50,
+                   'verbose': False},
+           'loaders': {'batch_size': 8,
+                       'crop_size': 42,
+                       'load_color': False,
+                       'trn_path_list': ['CBSD432'],
+                       'tst_path_list': ['CBSD68'],
+                       'val_path_list': ['Set12']},
+           'opt': {'lr': 0.0001},
+           'sched': {'gamma': 0.95, 'step_size': 200}}}
+Loading ['CBSD432']:
+Loading ['CBSD68']:
+Loading ['Set12']:
+Using device cuda:0.
+Using 2 GPUs.
+Current Learning Rate(s):
+0.0001
+Total Number of Parameters: 6,375,696
+fit: using device cuda:0
+Saving initialization to 0.ckpt

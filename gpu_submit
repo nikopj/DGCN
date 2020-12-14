@@ -1,0 +1,33 @@
+#!/bin/bash
+
+model="$1"
+
+#ver="${2:-a}"
+#echo "${model}${ver}"
+#cp args/${model}.json args/${model}${ver}.json
+#sed "s/${model}/${model}${ver}/" args/${model}.json > args/${model}${ver}.json
+
+cat > job.sh << EOF
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1
+#SBATCH --time=4:00:00
+#SBATCH --mem=2GB
+#SBATCH --job-name=$1
+#SBATCH --mail-type=END
+#SBATCH --mail-user=npj226@nyu.edu
+#SBATCH --output=slurm_out/${1}.out
+  
+module load cuda/10.1.105
+module load cudnn/10.1v7.6.5.32
+
+source $HOME/py3env/bin/activate
+cd /scratch/npj226-share/MRSR
+python3 train.py args/${model}.json
+EOF
+
+#python3 train.py args/${model}${ver}.json
+sbatch job.sh
+
