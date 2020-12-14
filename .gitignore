@@ -3,3 +3,5 @@ CBSD*
 Models*
 papers
 *pycache*
+slurm_out/
+args/

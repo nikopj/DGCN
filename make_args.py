@@ -13,9 +13,21 @@ args = json.load(args_file)
 args_file.close()
 
 loop_args = {
-	"window_size": [32],
-	"nf": [9*9],
-	"rank": [5]
+	"ks": [3,7],
+	"topK": [8, 16],
+	"circ_rows": [None,3]
+}
+
+args["model"] = {
+	"nic": 1,
+	"nf": 64,
+	"ks": 7,
+	"iters": 10,
+	"window_size": 32,
+	"topK": 14,
+	"rank": 8,
+	"circ_rows": None,
+	"leak": 0.2
 }
 
 args["train"] = {
@@ -28,38 +40,28 @@ args["train"] = {
 		"tst_path_list": ["CBSD68"]
 	},
 	"fit": {
-		"epochs": 16000,
+		"epochs": 3000,
 		"noise_std": 25,
-		"val_freq": 50,
-		"save_freq": 50,
+		"val_freq": 25,
+		"save_freq": 5,
 		"backtrack_thresh": 1,
 		"verbose": False,
-		"clip_grad": 1
+		"clip_grad": 5e-2
 	},
 	"opt": {
-		"lr": 1e-4
+		"lr": 1e-3
 	},
 	"sched": {
 		"gamma": 0.95,
-		"step_size": 200
+		"step_size": 25
 	}
 }
 
-args["model"] = {
-	"nic": 1,
-	"nf": 18,
-	"iters": 4,
-	"window_size": 42,
-	"topK": 8,
-	"rank": 3,
-	"circ_rows": 3,
-	"leak": 0.2
-}
-
+args['type'] = "GCDLNet"
 args['paths']['ckpt'] = None
 
-vnum = 2
-name = "nf_rank"
+vnum = 0
+name = "ks_K_rows"
 
 def product(*args, repeat=1):
 	# product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
@@ -73,7 +75,7 @@ def product(*args, repeat=1):
 
 keys = list(loop_args.keys())
 
-with open(f"Models/DGCN-{name}.summary", "a") as summary:
+with open(f"Models/{args['type']}-{name}.summary", "a") as summary:
 	for items in product(*[loop_args[k] for k in keys]):
 		for i, it in enumerate(items):
 			if keys[i] in args['model']:
@@ -81,7 +83,7 @@ with open(f"Models/DGCN-{name}.summary", "a") as summary:
 			elif keys[i] in args['train']['fit']:
 				args['train']['fit'][keys[i]] = it
 
-		version = "DGCN-" + name + "-" + str(vnum)
+		version = args['type']+"-" + name + "-" + str(vnum)
 		args['paths']['save'] = "Models/" + version
 		write_args(args, version)
 		print(f'{version}: {items}')
