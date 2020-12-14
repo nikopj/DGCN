@@ -19,12 +19,13 @@ def main(args):
 		data_parallel = False
 	model = initModel(model_args, train_args, paths, device=device)[0]
 
-	x = utils.imgLoad("Set12/09.png", gray=True).to(device)[:,:,128:256,128:256]
+	x = utils.imgLoad("Set12/09.png", gray=True).to(device)[:,:,128:128+256,128:128+256]
 	y = utils.awgn(x, 25)
-	xhat, edge = model(y)
-	fig1 = visual.visplot(torch.cat([y, xhat, x]))
-	fig2, handler = visual.visneighbors(xhat, edge, local_area=3)
-	plt.show()
+	xhat, edge = model(y, ret_edge=True)
+
+	#fig1 = visual.visplot(torch.cat([y, xhat, x]))
+	#kfig2, handler = visual.visneighbors(xhat, edge, local_area=3)
+	#kplt.show()
 
 if __name__ == "__main__":
 	""" Load arguments dictionary from json file to pass to main.

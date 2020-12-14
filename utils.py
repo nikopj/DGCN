@@ -25,6 +25,27 @@ def awgn(input, noise_std):
 		       (noise_std[1] - noise_std[0])*torch.rand(len(input),1,1,1, device=input.device)
 	return input + torch.randn_like(input) * (sigma/255)
 
+def pre_process(x, window_size):
+	params = []
+	# mean-subtract
+	xmean = x.mean(dim=(2,3), keepdim=True)
+	x = x - xmean
+	params.append(xmean)
+	# pad signal for windowed processing (in GraphConv)
+	pad = calcPad2D(*x.shape[2:], window_size)
+	x = F.pad(x, pad, mode='reflect')
+	params.append(pad)
+	return x, params
+
+def post_process(x, params):
+	# unpad
+	pad = params.pop()
+	x = unpad(x, pad)
+	# add mean
+	xmean = params.pop()
+	x = x + xmean
+	return x
+
 def calcPad1D(L, M):
 	""" Return symmetric pad sizes for length L 1D signal 
 	to be divided into non-overlapping windows of size M.

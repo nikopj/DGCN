@@ -31,10 +31,16 @@ def main():
 
 	mask = localMask(M, M, ks)
 	edge = windowedTopK(xpad, K, M, mask)
+	print(f"edge.shape = ")
+	print(edge.shape)
 
 	# (B, K, N, C)
-	label, vertex_set = getLabelVertex(xpad, edge)
-	label_img, vS_img = label.reshape(B,K,H,W,C), vertex_set.reshape(B,K,H,W,C)
+	label, vertex = getLabelVertex(xpad, edge)
+	print(f"label.shape = ")
+	print(label.shape)
+	print("vertex.shape = ")
+	print(vertex.shape)
+	#label_img, vS_img = label.reshape(B,K,H,W,C), vertex.reshape(B,K,H,W,C)
 
 	GConv = net.GraphConv(C,Cout, ks=ks)
 	ypad = GConv(xpad, edge)

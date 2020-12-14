@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import knn, utils
+import knn, utils, solvers
 
 class DGCN(nn.Module):
 	""" Deep Graph Convolutional Network
@@ -29,29 +29,8 @@ class DGCN(nn.Module):
 		self.wtkargs = (topK, window_size, knn.localMask(window_size, window_size, 3)) # windowedTopK args
 		self.iters = iters
 
-	def pre_process(self, x):
-		params = []
-		# mean-subtract
-		xmean = x.mean(dim=(2,3), keepdim=True)
-		x = x - xmean
-		params.append(xmean)
-		# pad signal for windowed processing (in GraphConv)
-		pad = utils.calcPad2D(*x.shape[2:], self.wtkargs[1])
-		x = F.pad(x, pad, mode='reflect')
-		params.append(pad)
-		return x, params
-
-	def post_process(self, x, params):
-		# unpad
-		pad = params.pop()
-		x = utils.unpad(x, pad)
-		# add mean
-		xmean = params.pop()
-		x = x + xmean
-		return x
-
 	def forward(self, x, ret_edge=False):
-		x, params = self.pre_process(x)
+		x, params = utils.pre_process(x, self.wtkargs[1])
 		z = torch.cat([self.PPCONV[i](self.INCONV[i](x)) for i in range(3)], dim=1)
 		hiz = self.HPF(z); 
 		for i in range(self.iters):
@@ -60,8 +39,10 @@ class DGCN(nn.Module):
 		z = (1-self.alpha[-1])*z + self.beta[-1]*hiz
 		edge = knn.windowedTopK(z, *self.wtkargs)
 		z = self.GCout(z, edge)
-		x = self.post_process(x+z, params)
-		return x, edge
+		x = utils.post_process(x+z, params)
+		if ret_edge:
+			return x, edge
+		return x
 		
 class GClayer(nn.Module):
 	def __init__(self,nf,ks=3,window_size=32,topK=8,block_type="LPF",leak=0.2,**kwargs):
@@ -101,15 +82,67 @@ class GClayer(nn.Module):
 			return x, edge
 		return x
 
+class GCDLNet(nn.Module):
+	def __init__(self, nic=1, nf=16, ks=7, edge_freq=1, iters=3, window_size=32, topK=8, **kwargs):
+		super(GCDLNet, self).__init__()
+		W = torch.randn(nf,nic,ks,ks); W = W / torch.norm(W,dim=(2,3),keepdim=True)
+		adjoint = lambda X: X.transpose(0,1).flip(2,3)
+		p = (ks-1)//2
+		conv = lambda x,H: F.conv2d(F.pad(x,(p,p,p,p)),H)
+		with torch.no_grad():
+			L, _, _ = solvers.powerMethod(lambda x: conv(conv(x,W), adjoint(W)),
+			                              torch.randn(1,1,128,128),
+			                              num_iter = 100,
+			                              verbose = False)
+			print(f"L={L:.3e}")
+			if L<0:
+				print("Error: powerMethod: negative singular value...")
+				sys.exit()
+		W = W / np.sqrt(L)
+		def conv_gen(nic,noc):
+			C = GraphConv(nic,noc,ks,bias=False,**kwargs)
+			if nic < noc:
+				C.Conv.weight.data = W.clone()
+			else:
+				C.Conv.weight.data = W.transpose(0,1).flip(2,3).clone()
+			return C
+		self.D = conv_gen(nf,nic);
+		self.A = nn.ModuleList([conv_gen(nic,nf) for _ in range(iters)])
+		self.A[0] = self.A[0].Conv
+		self.B = nn.ModuleList([conv_gen(nf,nic) for _ in range(iters)])
+		self.tau = nn.ParameterList([nn.Parameter(1e-1*torch.ones(1,nf,1,1)/L) for _ in range(iters)])
+		self.wtkargs = (topK, window_size, knn.localMask(window_size, window_size, ks)) # windowedTopK args
+		self.iters = iters
+		self.edge_freq = edge_freq
+
+	def forward(self, y, ret_edge=False):
+		yp, params = utils.pre_process(y, self.wtkargs[1])
+		z = ST(self.A[0](yp), self.tau[0])
+		for i in range(1, self.iters):
+			if ((i-1) % self.edge_freq) == 0:
+				edge = knn.windowedTopK(z, *self.wtkargs)
+			r = self.B[i](z, edge) - yp
+			z = ST(z - self.A[i](r, edge), self.tau[i])
+		edge  = knn.windowedTopK(z, *self.wtkargs)
+		xphat = self.D(z, edge)
+		xhat  = utils.post_process(xphat, params)
+		if ret_edge:
+			return xhat, edge
+		return xhat
+
+def ST(x,t):
+	return x.sign()*F.relu(x.abs()-t)
+
 class GraphConv(nn.Module):
 	""" Graph-Convolution Module.
 	Computes average (+bias) of learned local and non-local convolutions.
 	"""
-	def __init__(self, Cin, Cout, ks=3, **kwargs):
+	def __init__(self, Cin, Cout, ks=3, bias=True, **kwargs):
 		super(GraphConv, self).__init__()
 		self.NLAgg = LowRankECC(Cin, Cout, **kwargs)
 		self.Conv  = nn.Conv2d(Cin, Cout, ks, padding=(ks-1)//2, padding_mode='reflect', bias=False)
 		self.bias  = nn.Parameter(torch.zeros(1,Cout,1,1))
+		self.bias.requires_grad = bias
 
 	def forward(self, h, edge):
 		""" 
@@ -195,8 +228,11 @@ class CircDense(nn.Module):
 		self.Cout = Cout
 
 	def forward(self, x):
-		xpad = F.pad(x.unsqueeze(1), (0,self.m-1), mode='circular')
-		return F.conv1d(xpad, self.weight).view(-1,self.Cout)
+		mode = "circular" if x.shape[-1]>1 else "replicate"
+		xpad = F.pad(x.unsqueeze(1), (0,self.m-1), mode=mode)
+		y = F.conv1d(xpad, self.weight)
+		y = y.view(-1,self.Cout)
+		return y
 
 
 

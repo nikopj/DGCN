@@ -5,7 +5,7 @@ from pprint import pprint
 import numpy as np
 import torch
 import torch.nn as nn
-from net import DGCN
+from net import DGCN, GCDLNet
 from data import getDataLoaders
 from utils import awgn
 
@@ -22,7 +22,7 @@ def main(args):
 		data_parallel = True
 	else:
 		data_parallel = False
-	model, opt, sched, epoch0 = initModel(model_args, train_args, paths, device=device)
+	model, opt, sched, epoch0 = initModel(args, device=device)
 	fit(model, opt, loaders,
 	    sched       = sched, 
 	    save_dir    = paths['save'],
@@ -137,17 +137,23 @@ def setlr(opt, lr):
 	for (i, pg) in enumerate(opt.param_groups):
 		pg['lr'] = lr[i]
 
-def initModel(model_args, fit_args, paths, device=torch.device("cpu")):
+def initModel(args, device=torch.device("cpu")):
 	""" Return model, optimizer, scheduler with optional initialization 
 	from checkpoint.
 	"""
-	model = DGCN(**model_args)
+	model_type, model_args, train_args, paths = [args[item] for item in ['type','model','train','paths']]
+	if model_type == "DGCN":
+		model = DGCN(**model_args)
+	elif model_type == "GCDLNet":
+		model = GCDLNet(**model_args)
+	else:
+		raise NotImplementedError
 	model.to(device)
 	initDir = lambda p: os.mkdir(p) if not os.path.isdir(p) else None
 	initDir(os.path.dirname(paths['save']))
 	initDir(paths['save'])
-	opt = torch.optim.Adam(model.parameters(), **fit_args['opt'])
-	sched = torch.optim.lr_scheduler.StepLR(opt, **fit_args['sched'])
+	opt = torch.optim.Adam(model.parameters(), **train_args['opt'])
+	sched = torch.optim.lr_scheduler.StepLR(opt, **train_args['sched'])
 	ckpt_path = paths['ckpt']
 	if ckpt_path is not None:
 		print(f"Initializing model from {ckpt_path} ...")
