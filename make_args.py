@@ -13,9 +13,8 @@ args = json.load(args_file)
 args_file.close()
 
 loop_args = {
-	"ks": [3,7],
-	"topK": [8, 16],
-	"circ_rows": [None,3]
+	"topK": [4, 8, 16],
+	"window_size": [48]
 }
 
 args["model"] = {
@@ -23,7 +22,7 @@ args["model"] = {
 	"nf": 64,
 	"ks": 7,
 	"iters": 10,
-	"window_size": 32,
+	"window_size": 48,
 	"topK": 14,
 	"rank": 8,
 	"circ_rows": None,
@@ -33,7 +32,7 @@ args["model"] = {
 args["train"] = {
 	"loaders": {
 		"batch_size": 4,
-		"crop_size": 32,
+		"crop_size": 48,
 		"load_color": False,
 		"trn_path_list": ["CBSD432"],
 		"val_path_list": ["Set12"],
@@ -60,8 +59,8 @@ args["train"] = {
 args['type'] = "GCDLNet"
 args['paths']['ckpt'] = None
 
-vnum = 0
-name = "ks_K_rows"
+vnum = 3
+name = "topK_window"
 
 def product(*args, repeat=1):
 	# product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy

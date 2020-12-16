@@ -6,8 +6,8 @@
 	"ks": 7,
 	"iters": 10,
 	"window_size": 32,
-	"topK": 8,
-	"rank": 3,
+	"topK": 16,
+	"rank": 12,
 	"circ_rows": null,
 	"leak": 0.2
 },
@@ -17,7 +17,7 @@
 },
 "train": {
 	"loaders": {
-		"batch_size": 4,
+		"batch_size": 8,
 		"crop_size": 32,
 		"load_color": false,
 		"trn_path_list": ["Set12"],
@@ -25,20 +25,20 @@
 		"tst_path_list": ["Set12"]
 	},
 	"fit": {
-		"epochs": 1,
+		"epochs": 5,
 		"noise_std": 25,
-		"val_freq": 1,
+		"val_freq": 3,
 		"save_freq": 1,
-		"backtrack_thresh": 1,
+		"backtrack_thresh": 0.2,
 		"verbose": true,
 		"clip_grad": 1
 	},
 	"opt": {
-		"lr": 1e-3
+		"lr": 1e-2
 	},
 	"sched": {
 		"gamma": 0.8,
-		"step_size": 5
+		"step_size": 1
 	}
 }
 }

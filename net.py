@@ -194,10 +194,11 @@ class LowRankECC(nn.Module):
 		# move pixels and K neighbors into batch dimension
 		label_tilde  = label.reshape(-1, self.Cin)
 		vertex_tilde = vertex.reshape(-1, self.Cin)
+		# mini-batching this forward
 		BATCH = label_tilde.shape[0]
-		step = BATCH // 1
+		step = BATCH // 8
 		mbidx = np.arange(0,BATCH,step)
-		for i in range(len(mbidx)): # mini-batching this forward
+		for i in range(len(mbidx)): 
 			i0 = mbidx[i]; 
 			i1 = mbidx[i+1] if i < (len(mbidx)-1) else BATCH
 			mb_label_tilde = label_tilde[i0:i1]

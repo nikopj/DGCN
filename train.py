@@ -102,7 +102,7 @@ def fit(model, opt, loaders,
 			path = os.path.join(save_dir, str(epoch) + '.ckpt')
 			model, _, _, _ = loadCkpt(path, model, opt, sched)
 			new_lr = old_lr * 0.8
-			print(f"Updated Learning Rate(s): {new_lr:.3e}")
+			print("Updated Learning Rate(s):", new_lr)
 			setlr(opt, new_lr)
 			epoch = epoch + 1
 			continue
