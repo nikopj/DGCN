@@ -27,8 +27,8 @@ def main(args):
 	    sched       = sched, 
 	    save_dir    = paths['save'],
 	    start_epoch = epoch0 + 1,
-		device      = device,
-		data_parallel = data_parallel,
+	    device      = device,
+	    data_parallel = data_parallel,
 	    **train_args['fit'],
 	    epoch_fun   = lambda epoch_num: saveArgs(args, epoch_num))
 
@@ -44,8 +44,8 @@ def fit(model, opt, loaders,
 	    val_freq  = 1,
 	    save_freq = 1,
 	    data_parallel = False,
-		epoch_fun = None,
-		backtrack_thresh = 1):
+	    epoch_fun = None,
+	    backtrack_thresh = 1):
 	""" fit model to training data.
 	"""
 	print(f"fit: using device {device}")
@@ -56,6 +56,7 @@ def fit(model, opt, loaders,
 	epoch = start_epoch
 	while epoch < start_epoch + epochs:
 		for phase in ['train', 'val', 'test']:
+			model.train() if phase == 'train' else model.eval()
 			if epoch != epochs and phase == 'test':
 				continue
 			if phase == 'val' and epoch%val_freq != 0:
@@ -77,7 +78,6 @@ def fit(model, opt, loaders,
 						if clip_grad is not None:
 							nn.utils.clip_grad_norm_(model.parameters(), clip_grad)
 						opt.step()
-						#model.project()
 				loss = loss.item()
 				if verbose:
 					total_norm = grad_norm(model.parameters())
@@ -91,7 +91,7 @@ def fit(model, opt, loaders,
 			elif (psnr + backtrack_thresh < top_psnr[phase]) or np.isnan(loss) or np.isinf(loss):
 				break
 			with open(os.path.join(save_dir, f'{phase}.psnr'),'a') as psnr_file:
-				psnr_file.write(f'{psnr},')
+				psnr_file.write(f'{psnr}  ')
 		if (psnr + backtrack_thresh < top_psnr[phase]) or np.isnan(loss) or np.isinf(loss):
 			if epoch % save_freq == 0:
 				epoch = epoch - save_freq
@@ -115,8 +115,8 @@ def fit(model, opt, loaders,
 			path = os.path.join(save_dir, str(epoch) + '.ckpt')
 			print('Checkpoint: ' + path)
 			saveCkpt(path, model, epoch, opt, sched)
-		if epoch_fun is not None:
-			epoch_fun(epoch)
+			if epoch_fun is not None:
+				epoch_fun(epoch)
 		epoch = epoch + 1
 
 def grad_norm(params):
@@ -185,11 +185,13 @@ def loadCkpt(path, model=None,opt=None,sched=None):
 	"""
 	ckpt = torch.load(path, map_location=torch.device('cpu'))
 	def setSD(obj, name):
-		if obj is not None and name in ckpt:
+		if obj is not None and name+"_state_dict" in ckpt:
+			print(f"Loading {name} state-dict...")
 			obj.load_state_dict(ckpt[name+"_state_dict"])
-	setSD(model, 'model')
-	setSD(opt, 'opt')
-	setSD(sched, 'sched')
+		return obj
+	model = setSD(model, 'model')
+	opt   = setSD(opt, 'opt')
+	sched = setSD(sched, 'sched')
 	return model, opt, sched, ckpt['epoch']
 
 def saveArgs(args, epoch_num=None):

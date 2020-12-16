@@ -1,14 +1,13 @@
 {
-"type": "GCDLNet",
+"type": "DGCN",
 "model": {
 	"nic": 1,
-	"nf": 16,
-	"ks": 7,
-	"iters": 10,
+	"nf": 27,
+	"iters": 4,
 	"window_size": 32,
 	"topK": 8,
 	"rank": 11,
-	"circ_rows": null,
+	"circ_rows": 3,
 	"leak": 0.2
 },
 "paths": {
@@ -34,7 +33,7 @@
 		"clip_grad": 1
 	},
 	"opt": {
-		"lr": 1e-4
+		"lr": 1e-2
 	},
 	"sched": {
 		"gamma": 0.8,

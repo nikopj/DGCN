@@ -8,13 +8,13 @@ def write_args(arg_dict, name):
 	with open(join("args",name+".json"), '+w') as outfile:
 		outfile.write(json.dumps(arg_dict, indent=4, sort_keys=True))
 
-args_file = open("args.json")
+args_file = open("args_gcdlnet.json")
 args = json.load(args_file)
 args_file.close()
 
 loop_args = {
-	"topK": [4, 8, 16],
-	"window_size": [48]
+	"nf": [32, 64],
+	"topK": [None, 8],
 }
 
 args["model"] = {
@@ -22,9 +22,9 @@ args["model"] = {
 	"nf": 64,
 	"ks": 7,
 	"iters": 10,
-	"window_size": 48,
-	"topK": 14,
-	"rank": 8,
+	"window_size": 32,
+	"topK": 8,
+	"rank": 11,
 	"circ_rows": None,
 	"leak": 0.2
 }
@@ -32,7 +32,7 @@ args["model"] = {
 args["train"] = {
 	"loaders": {
 		"batch_size": 4,
-		"crop_size": 48,
+		"crop_size": 32,
 		"load_color": False,
 		"trn_path_list": ["CBSD432"],
 		"val_path_list": ["Set12"],
@@ -43,7 +43,7 @@ args["train"] = {
 		"noise_std": 25,
 		"val_freq": 25,
 		"save_freq": 5,
-		"backtrack_thresh": 1,
+		"backtrack_thresh": 0.5,
 		"verbose": False,
 		"clip_grad": 5e-2
 	},
@@ -59,8 +59,8 @@ args["train"] = {
 args['type'] = "GCDLNet"
 args['paths']['ckpt'] = None
 
-vnum = 3
-name = "topK_window"
+vnum = 0
+name = "nf_topK"
 
 def product(*args, repeat=1):
 	# product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
