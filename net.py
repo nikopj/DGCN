@@ -194,13 +194,14 @@ class LowRankECC(nn.Module):
 		# move pixels and K neighbors into batch dimension
 		label  = label.reshape(-1, self.Cin)
 		vertex = vertex.reshape(-1, self.Cin)
-		# perform mini-batch loop if est. memory exceeds 2GB
+		# perform mini-batch loop if est. memory exceeds MEM_MAX
 		BATCH = label.shape[0]
 		SIZE = ((3+ self.rank)*self.Cin + (self.rank+1)*self.Cout + self.rank + 1) 
 		MEM = (SIZE * BATCH * 8) / (1024**3)
 		#print(f"MEMORY = {MEM:.3f} GB")
-		if MEM > 2:
-			step  = int((2/MEM)*BATCH)
+		MEM_MAX = 8
+		if MEM > MEM_MAX:
+			step  = int((MEM_MAX/MEM)*BATCH)
 		else:
 			step = BATCH
 		#STEP_MEM = (step*SIZE*8) / (1024**3)
