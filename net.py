@@ -192,50 +192,42 @@ class LowRankECC(nn.Module):
 		# get labels and vertex-set associated with each pixel
 		label, vertex = knn.getLabelVertex(h, edge)
 		# move pixels and K neighbors into batch dimension
-		label_tilde  = label.reshape(-1, self.Cin)
-		vertex_tilde = vertex.reshape(-1, self.Cin)
-		BATCH = label_tilde.shape[0]
-		step = BATCH // 1
+		label  = label.reshape(-1, self.Cin)
+		vertex = vertex.reshape(-1, self.Cin)
+		# perform mini-batch loop if est. memory exceeds 2GB
+		BATCH = label.shape[0]
+		SIZE = ((3+ self.rank)*self.Cin + (self.rank+1)*self.Cout + self.rank + 1) 
+		MEM = (SIZE * BATCH * 8) / (1024**3)
+		#print(f"MEMORY = {MEM:.3f} GB")
+		if MEM > 2:
+			step  = int((2/MEM)*BATCH)
+		else:
+			step = BATCH
+		#STEP_MEM = (step*SIZE*8) / (1024**3)
+		#print(f"STEP_MEM = {STEP_MEM:.3f} GB")
 		mbidx = np.arange(0,BATCH,step)
 		for i in range(len(mbidx)): # mini-batching this forward
 			i0 = mbidx[i]; 
 			i1 = mbidx[i+1] if i < (len(mbidx)-1) else BATCH
-			mb_label_tilde = label_tilde[i0:i1]
-			mb_vertex_tilde = label_tilde[i0:i1]
+			mb_label = label[i0:i1]
+			mb_vertex = label[i0:i1]
 			# layer-1: learned edge-label preprocess
-			theta  = self.act(self.FC0(mb_label_tilde))
+			theta  = self.act(self.FC0(mb_label))
 			# layer-2: generate low-rank matrix for each neighbor based on edge-label
-			B0 = mb_label_tilde.shape[0]
+			B0 = mb_label.shape[0]
 			thetaL = self.FCL(theta).reshape(B0, self.Cout, self.rank)
 			thetaR = self.FCR(theta).reshape(B0, self.Cin,  self.rank)
 			kappa  = self.FCk(theta) 
 			# stage-3: apply low-rank matrix
 			# (Cout, 1) = (Cout, rank) @ diag(rank, 1) @ (rank, Cin), batch supressed
-			mb_output = thetaL @ (kappa.unsqueeze(-1) * (thetaR.transpose(1,2) @ mb_vertex_tilde.unsqueeze(-1)))
+			mb_output = thetaL @ (kappa.unsqueeze(-1) * (thetaR.transpose(1,2) @ mb_vertex.unsqueeze(-1)))
 			output = mb_output if i==0 else torch.cat([output,mb_output])
 		# stage-4: non-local attention term (B0,1,1)
-		gamma = torch.exp(-torch.sum(label_tilde**2, dim=1, keepdim=True)/self.delta).unsqueeze(-1)
+		gamma = torch.exp(-torch.sum(label**2, dim=1, keepdim=True)/self.delta).unsqueeze(-1)
 		# average over K neighbors
 		output = (gamma*output).reshape(B, K, N, self.Cout).mean(dim=1) # (B,N,Cout)
 		# reshape to image 
 		output = output.permute(0,2,1).reshape(B, self.Cout, H, W)
-
-		## layer-1: learned edge-label preprocess
-		#theta  = self.act(self.FC0(label_tilde))
-		## layer-2: generate low-rank matrix for each neighbor based on edge-label
-		#B0 = B*K*N
-		#thetaL = self.FCL(theta).reshape(B0, self.Cout, self.rank)
-		#thetaR = self.FCR(theta).reshape(B0, self.Cin,  self.rank)
-		#kappa  = self.FCk(theta) 
-		## stage-3: apply low-rank matrix
-		## (Cout, 1) = (Cout, rank) @ diag(rank, 1) @ (rank, Cin), batch supressed
-		#output = thetaL @ (kappa.unsqueeze(-1) * (thetaR.transpose(1,2) @ vertex_tilde.unsqueeze(-1)))
-		## stage-4: non-local attention term (B0,1,1)
-		#gamma = torch.exp(-torch.sum(label_tilde**2, dim=1, keepdim=True)/self.delta).unsqueeze(-1)
-		## average over K neighbors
-		#output = (gamma*output).reshape(B, K, N, self.Cout).mean(dim=1) # (B,N,Cout)
-		## reshape to image 
-		#output = output.permute(0,2,1).reshape(B, self.Cout, H, W)
 		return output
 
 class CircDense(nn.Module):
