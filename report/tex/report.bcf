@@ -2360,6 +2360,7 @@
     <bcf:citekey order="8">ValsesiaICIP19</bcf:citekey>
     <bcf:citekey order="9">ValsesiaICIP19</bcf:citekey>
     <bcf:citekey order="10">bsd</bcf:citekey>
+    <bcf:citekey order="11">ValsesiaICIP19</bcf:citekey>
   </bcf:section>
   <!-- SORTING TEMPLATES -->
   <bcf:sortingtemplate name="nty">

@@ -1,11 +1,11 @@
 # Fdb version 3
-["biber report"] 1608264144 "report.bcf" "report.bbl" "report" 1608264279
+["biber report"] 1608267442 "report.bcf" "report.bbl" "report" 1608267718
   "references.bib" 1608244654 808 38805b5c983a9b02ed4b349fbeb6ce8b ""
-  "report.bcf" 1608264279 107649 969558f7b26af03cb95c383e8e6f2b8f "pdflatex"
+  "report.bcf" 1608267717 107706 df813ef7fdfce8fe7e731db0ba8cb039 "pdflatex"
   (generated)
   "report.blg"
   "report.bbl"
-["pdflatex"] 1608264277 "report.tex" "report.pdf" "report" 1608264279
+["pdflatex"] 1608267716 "report.tex" "report.pdf" "report" 1608267718
   "/home/nikopj/.config/texmf/tex/latex/format.sty" 1605825382 3785 2e42fd9f271a4fd87927a5a2f9c1ac9c ""
   "/opt/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1246382020 1004 54797486969f23fa377b128694d548df ""
   "/opt/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex8.tfm" 1246382020 988 bdf658c3bfc2d96d3c8b02cfc1c94c20 ""
@@ -141,16 +141,17 @@
   "/opt/texlive/2020/texmf-var/web2c/pdftex/pdflatex.fmt" 1603836014 1936159 74f68f3d34f5259b0193ac0be258c370 ""
   "/opt/texlive/2020/texmf.cnf" 1604899859 491 56f7cef9559822960bd00d7822d30ad0 ""
   "imgs/gcdn_arch.png" 1608238521 81058 40c41a6438eed686aef67d671497295c ""
+  "imgs/my_receptivefield.png" 1608248189 193553 ac1929e858676d4c705b27ed18944878 ""
   "imgs/nlagg.png" 1608238521 69813 6b4c17a896f488efe15f69e88bf8b05b ""
-  "report.aux" 1608264279 6595 b1932712edb144f8d9631fc1fdb33d82 "pdflatex"
-  "report.bbl" 1608264145 3282 d1d5a94cc108f88e605c1738b74dfe33 "biber report"
-  "report.out" 1608264279 807 98b207e0ce6d5728f8319df699cbd42e "pdflatex"
-  "report.run.xml" 1608264279 2357 420bb99274155626f4a3e134f504a371 "pdflatex"
-  "report.tex" 1608264277 15570 2e431dac76109af842eae5f11e9367c7 ""
+  "report.aux" 1608267717 7469 86ad8632c9b1ea732fbb421b5546c549 "pdflatex"
+  "report.bbl" 1608267444 3282 d1d5a94cc108f88e605c1738b74dfe33 "biber report"
+  "report.out" 1608267717 758 dca6b15d1ca1ad186ae17a72ea89fd20 "pdflatex"
+  "report.run.xml" 1608267717 2357 420bb99274155626f4a3e134f504a371 "pdflatex"
+  "report.tex" 1608267712 17778 fbf2761ca1d42df0a74ea9a964574547 ""
   (generated)
+  "report.aux"
+  "report.bcf"
+  "report.run.xml"
+  "report.out"
   "report.log"
   "report.pdf"
-  "report.out"
-  "report.run.xml"
-  "report.bcf"
-  "report.aux"

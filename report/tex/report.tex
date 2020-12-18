@@ -48,12 +48,12 @@ This report walks through the implementation of the Graph Convolutional
 Denosising Network (GDCN) as detailed in \cite{ValsesiaICIP19}. The mentioned
 work proposes a novel image denoising deep neural-network that dynamically
 builds K-regular graphs in feature space to exploit non-local self-similarity of
-the underlying signal. It is an addtion to the ever growing body of work on
+the underlying signal. It is an addition to the ever growing body of work on
 non-local methods in signal processing, and has achieved state of the
 art-performance on popular image denoising benchmarks (both real and synthetic). 
 Background is given to understand the mechanics of the algorithm's novelty.
 Some additional insights are given in the implementation of the method.
-Small scale experiments are done to verify the benifit of the graph signal
+Small scale experiments are done to verify the benefit of the graph signal
 processing. 
 \end{abstract}
 
@@ -61,9 +61,9 @@ processing.
 
 \section{Introduction}
 Denoising is perhaps the most fundamental problem in signal processing. Although
-it has recieved decades, if not centuries, of attention, it remains a hot
+it has received decades, if not centuries, of attention, it remains a hot
 topic in today's literature as a proving ground for new ideas and algorithms.
-This is largely becuase the denoising problem presents one of the simplest
+This is largely because the denoising problem presents one of the simplest
 observation model, $\y = \bm{A}\x + \n$, where $\n$ is sample of noise following
 some distribution, and the observation operator $\bm{A}$ (in this case) is the
 identity. We refer to the problem of obtaining the signal $\x$ from observation
@@ -74,7 +74,7 @@ simplify the problem, as will be done in this implementation, we often look at
 evaluating our algorithms on synthetic white Gaussian noise, where $\n \sim
 \N(0,\sigma_n^2)$. Though additive Gaussian white noise (AWGN) is by no means a
 sophisticated model for real world noise (especially camera noise), it is a
-convienient benchmark which is widespread in the literature. See
+convenient benchmark which is widespread in the literature. See
 \cite{real_denoising_refs} for extending modern denoising algorithms to
 real-world noise models. \\
 
@@ -84,17 +84,14 @@ algorithms have come to dominate not only computer-vision tasks but also
 image-processing tasks such as denoising. This leap in performance was generated
 by the advent (and later efficient implementation) of convolutional neural
 networks (CNNs). Much of the CNNs success can be attributed to its bias towards
-exploiting local information (via convoluiton). Further gains in the performanc
-of deep-learning methods are increasingly being sought by explointing both local
+exploiting local information (via convolution). Further gains in the performance
+of deep-learning methods are increasingly being sought by exploiting both local
 and non-local information of the input signal. These ``non-local" methods come
 in many different flavors, mainly differing in their definitions of non-local
-neighbors and aggregation operators. The fruits of non-local methods are
-illustrated in Figure \ref{fig:fruit}, where the use of graph-convolutions in the
-implemented GCDN network has changed the uniform, radially growing receptive
-field, to a content-dependent adaptive one. \\
+neighbors and aggregation operators.
 
 The remainder of this report is outlined as follows. In Section
-\ref{sec:background} we first introduce the concepts and noation necessary for
+\ref{sec:background} we first introduce the concepts and notation necessary for
 understanding the graph signal processing used in the GCDN
 \cite{ValsesiaICIP19}. We then go over the differences between the non-local
 operations of GCDN and other popular (learned) non-local methods. In Section
@@ -106,9 +103,9 @@ operations of GCDN and other popular (learned) non-local methods. In Section
 % -----------------------------------------------------------------------------
 
 \section{Background and Related Works} \label{sec:background}
-\subsection{Convoluitons on Graphs}
+\subsection{Convolutions on Graphs}
 The emerging field of graph signal processing (GSP) seeks to extend classical
-signal processing knowledge and technqniques to signals defined on irregular
+signal processing knowledge and techniques to signals defined on irregular
 domains (non-uniform grids, etc.). In doing so a more general formulation of
 common operations, such as convolution, must be obtained, which may also bring
 benefits to signal processing on regular domains, such as images. Lets first
@@ -120,25 +117,25 @@ $C$ channels and $N$ pixels, $\x \in \R^{CN}$.
 \item $\x[i] \in \R^C$, feature vector corresponding to pixel $i$.  \\
 \item $\x^k \in \R^N$, channel $k$ of $\x$.  \\
 \item $\G(\V,\E)$, directed graph with vertices $\V$ and edges $\E$. \\
-\item $\V$, set of vertices (pixels). Caridinality $\abs{\V} = N$. \\
+\item $\V$, set of vertices (pixels). Cardinality $\abs{\V} = N$. \\
 \item $\E$, set of edges. $\E \subseteq \V \times \V$. \\
 \item $\N(i) = \{j | (i,j) \in \E \}$, set of neighbors of vertex $i$. \\
 \item $\L: \E \rightarrow \R^M$, label mapping.
 \item $\L[i,j] \in \R^M$, label for the edge connecting vertex $j$ to $i$.
 \end{itemize}
 
-\subsubsection{Frequency vs. Spatial Domain Definitions of Graph Convoluiton}
+\subsubsection{Frequency vs. Spatial Domain Definitions of Graph Convolution}
 Convolution is a staple of signal processing as it defines any linear
 shift-invariant (LSI) system. The operator is diagonalized by the Fourier basis
 and as such can equivalently characterized in both the frequency and spatial
 domain. For extending the concept of convolutions to signals defined on graphs, 
 several formulations have been proposed. A graph-laplacian matrix based on the
-graph's adjacency matrix can be used to yeild a spectral decompostion. However,
+graph's adjacency matrix can be used to yield a spectral decomposition. However,
 the formation and application of this operator can be expensive, which is
 undesirable for situations with dynamically changing graphs. An alternative
-approach is to define graph convolution in the spatial domain as an agregation
+approach is to define graph convolution in the spatial domain as an aggregation
 over neighboring vertices. This more general formulation loses the nice
-properties of spectral theory gains simplicity, flexiblity, and speed.
+properties of spectral theory gains simplicity, flexibility, and speed.
 
 \subsubsection{Edge Conditioned Convolutions}
 The GCDN architecture uses the graph convolution formulation from
@@ -184,7 +181,7 @@ output. Another residual connection in the main path is given from the
 preprocessing block, through a ``HPF" block, and connected to the output of each
 ''LPF" block. The heavy use of residual connections (and leaky-ReLUs) is
 reportedly for the purpose of mitigating vanishing gradients. Furthermore, the
-architcture's inspiration is said to derive from an algebraic manipulation of an
+architecture's inspiration is said to derive from an algebraic manipulation of an
 unrolled proximal-gradient descent algorithm with a graph-laplacian regularizer
 \cite{ValsesiaICIP19}.  
 
@@ -198,7 +195,7 @@ $\alpha_i,\beta_i$ are scalars learned for each iteration.}
 \end{figure}
 
 The defining feature of the network resides within each of these blocks:
-the graph conovlutional layer. These layers perform edge-conditioned
+the graph convolutional layer. These layers perform edge-conditioned
 convolutions with the input signal provided an input graph. The graphs are
 formed as $K$-regular graphs via a $K$ nearest neighbors (KNN) algorithm in the
 feature domain. The edge-labels of said graph are defined as the vector from
@@ -207,7 +204,7 @@ As the computation of the KNN graph can be computationally expensive, the same
 graph is reused through a single network block -- although the labels still
 change within blocks.
 
-\subsection{Graph Convoluitonal Layer}
+\subsection{Graph Convolutional Layer}
 The graph convolutional layer is defined as the average of a (local)
 convolutional operation and a non-local graph convolution operation, as
 represented pictorially in Figure \ref{fig:gclayer}.
@@ -215,10 +212,10 @@ represented pictorially in Figure \ref{fig:gclayer}.
 \begin{figure}
 \centering
 \includegraphics[width=.35\textwidth]{imgs/nlagg.png}
-\caption{Graph convoluitonal layer \cite{ValsesiaICIP19}. A local 2D convolution
+\caption{Graph convolutional layer \cite{ValsesiaICIP19}. A local 2D convolution
 is averaged with a non-local edge-conditioned convolution given an input graph.
 The input graph explicitly excludes neighbors within each pixels local area,
-defined by the size of the local convoluiton's filters. }
+defined by the size of the local convolution's filters. }
 \label{fig:gclayer}
 \end{figure}
 
@@ -244,11 +241,11 @@ except that we explicitly model a dependence of proximity in the feature domain
 
 The label-operator mapping $\F$ is implemented by a 2-layer multi-layer
 perceptron (MLP) for each graph-conv layer, with some caveats for memory
-consideration and overparameterization, as described in the following section. 
+consideration and over-parameterization, as described in the following section. 
 
 \subsection{Lightweight ECC}
 Consider a signal inside the network of $M$ channels and $N$ pixels, which is to
-be transformed into another signal of $M$ channels. In the graph convoltional
+be transformed into another signal of $M$ channels. In the graph convolutional
 layer, we propose that for every pixel, its $K$ neighbors each have their own
 feature-operator of size $M\times M$. For processing relatively small image of size $N = 256$,
 with feature vectors $M=128$ and $K=8$ nearest neighbors, this single layer
@@ -269,7 +266,7 @@ of parameters in $\F$ by a factor of $m$.  \\
 
 \textbf{Low-rank edge conditioned convolution}: We can further reduce the
 computational and memory burdens of ECC by explicitly factorizing the
-feature-operators $\Theta[i,j]$ as a sum of $r$ outer-products, yeilding an
+feature-operators $\Theta[i,j]$ as a sum of $r$ outer-products, yielding an
 operator of at most rank $r$. This is implemented by having three parallel
 branches in the second layer of $\F$ MLP that produce factors, $\Theta^L,
 \kappa, \Theta^R$ to create an SVD-like factorization: $\Theta = \Theta^L
@@ -285,7 +282,8 @@ online\footnote{\url{github.com/nikopj/DGCN}}.
 \subsection{Training Setup}
 The network was trained on patches of size $32\times 32$ from the Berkley
 Segmentation Dataset, BSD400 \cite{bsd}, and evaluated on the associated test
-set, BSD68. A batch size of 4 is used and the networks are trained for roughly
+set, BSD68. Validation was performed on the Set12 dataset of famous signal
+processing images. A batch size of 4 is used and the networks are trained for roughly
 $40k$ iterations -- 20\% of the total training time reported in the original
 paper. Despite this, training still took 36 hours on two GPUs for each network.
 Other implementation details, such as rank and circulant approximation, match
@@ -293,14 +291,59 @@ that of the original paper. During training, nearest neighbor computations are
 taken over the whole patch. During inference however, a sliding window of
 $32\times 32$ is used to compute the KNN for each pixel. This method of
 inference allows the receptive field of the network to adaptive in fantastic
-ways across the input images. 
+ways across the input images.
 
 \subsection{Ablation Study}
-- width of network and num. nearest neighbors
-\subsection{Adaptive Receptive Field}
+An ablation study was performed to demonstrate the efficacy of the graph
+convolutions towards denoising performance. Despite the relatively short training
+in comparison to the original paper, the performance between networks with and
+without graph-convolutions appears to separate quite early. However, as common
+with deep neural networks, we see that the wider networks are not able to
+achieve superior performance so early in training. Table \ref{tab:ablation}
+shows the results of this ablation study, with a consistent gain in performance
+by using graph convolutions in the network.
 
-\section{Discussion}
+\begin{table}[ht]
+\centering
+\begin{tabular}{c|c|c} \hline
+Width & Nearest Neighbors & Test PSNR (dB) \\\hline
+27 & None & 28.59 \\
+27 & 8    & 28.67  \\
+81 & None & 28.20  \\
+81 & 8 &    28.57  \\\hline
+\end{tabular}%
+\caption{Ablation study involving network width (number of features) and use of
+graph-convolutions. Test PSNR is reported on BSD68 with noise standard deviation
+of $\sigma_n = 25$ on a scale of 255.}
+\end{table}
+
+\subsection{Adaptive Receptive Field}
+In this section we marvel at the adaptive receptive field generated by the first
+LPF1 block one of the trained networks. The KNN graph is generated by the
+learned features representations. After passing through several graph
+convolutional layers, the receptive filed is able to grow along with
+semantically connected objects in the seen (such as edges of the same texture)
+instead of simply radially outward as in a vanilla CNN. Figure
+\ref{fig:receptive} such an adaptive receptive field.
+
+\begin{figure}
+\centering
+\includegraphics[width=\textwidth]{imgs/my_receptivefield.png}
+\caption{Adaptive receptive field of the GCDN in its intermediate layers. Red
+pixel denotes the center pixel and the green denotes pixels in its receptive
+field as it goes deeper through the network, left to right. }
+\label{fig:receptive}
+\end{figure}
+
 \section{Conclusion}
+The GCDN network \cite{ValsesiaICIP19} was implemented in Pytorch. Many issues
+were faced in implementation regarding memory and compute power. This may be due
+to some semi-naive implementations of nearest neighbor searches, or simply the
+use of python for such high-performance tasks. Further improvements can be made
+by making use of a lower-level packages for faster operations (see Facebook's
+FAISS). Despite this, a personal goal of obtaining a visual representation of
+the GDCN's adaptive receptive field was obtained, and the efficacy of the
+proposed method was validated.
 
 \printbibliography
 

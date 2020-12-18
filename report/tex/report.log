@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) (preloaded format=pdflatex 2020.10.27)  17 DEC 2020 23:04
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) (preloaded format=pdflatex 2020.10.27)  18 DEC 2020 00:01
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -791,19 +791,26 @@ Underfull \hbox (badness 10000) in paragraph at lines 63--80
  []
 
 
-LaTeX Warning: Reference `fig:fruit' on page 1 undefined on input line 92.
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 81--95
+Underfull \hbox (badness 10000) in paragraph at lines 107--113
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 110--116
+Underfull \hbox (badness 10000) in paragraph at lines 117--118
 
  []
 
 [1{/opt/texlive/2020/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+Underfull \hbox (badness 10000) in paragraph at lines 118--119
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 119--120
+
+ []
+
+
 Underfull \hbox (badness 10000) in paragraph at lines 120--121
 
  []
@@ -819,49 +826,42 @@ Underfull \hbox (badness 10000) in paragraph at lines 122--123
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 123--124
+Underfull \hbox (badness 10000) in paragraph at lines 151--157
 
  []
 
-
-Underfull \hbox (badness 10000) in paragraph at lines 124--125
-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 125--126
-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 154--160
-
- []
-
-[2]
-<imgs/gcdn_arch.png, id=97, 1806.75pt x 314.17375pt>
+<imgs/gcdn_arch.png, id=79, 1806.75pt x 314.17375pt>
 File: imgs/gcdn_arch.png Graphic file (type png)
 <use imgs/gcdn_arch.png>
-Package pdftex.def Info: imgs/gcdn_arch.png  used on input line 193.
+Package pdftex.def Info: imgs/gcdn_arch.png  used on input line 190.
 (pdftex.def)             Requested size: 525.23788pt x 91.33336pt.
-<imgs/nlagg.png, id=100, 767.86874pt x 659.46375pt>
+[2]
+<imgs/nlagg.png, id=96, 767.86874pt x 659.46375pt>
 File: imgs/nlagg.png Graphic file (type png)
 <use imgs/nlagg.png>
-Package pdftex.def Info: imgs/nlagg.png  used on input line 217.
+Package pdftex.def Info: imgs/nlagg.png  used on input line 214.
 (pdftex.def)             Requested size: 183.83646pt x 157.88208pt.
  [3 <./imgs/gcdn_arch.png> <./imgs/nlagg.png>]
-Underfull \hbox (badness 10000) in paragraph at lines 250--261
+Underfull \hbox (badness 10000) in paragraph at lines 247--258
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 262--269
+Underfull \hbox (badness 10000) in paragraph at lines 259--266
 
  []
 
-[4] (./report.aux)
+
+LaTeX Warning: Reference `tab:ablation' on page 4 undefined on input line 302.
+
+<imgs/my_receptivefield.png, id=112, 1384.6932pt x 370.0224pt>
+File: imgs/my_receptivefield.png Graphic file (type png)
+<use imgs/my_receptivefield.png>
+Package pdftex.def Info: imgs/my_receptivefield.png  used on input line 331.
+(pdftex.def)             Requested size: 525.23788pt x 140.3559pt.
+[4] [5 <./imgs/my_receptivefield.png>] (./report.aux)
 Package rerunfilecheck Info: File `report.out' has not changed.
-(rerunfilecheck)             Checksum: 98B207E0CE6D5728F8319DF699CBD42E;807.
+(rerunfilecheck)             Checksum: DCA6B15D1CA1AD186AE17A72EA89FD20;758.
 
 
 LaTeX Warning: There were undefined references.
@@ -871,10 +871,10 @@ Package logreq Info: Writing requests to 'report.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 17373 strings out of 481366
- 289367 string characters out of 5918938
- 1036567 words of memory out of 5000000
- 33313 multiletter control sequences out of 15000+600000
+ 17382 strings out of 481366
+ 289570 string characters out of 5918938
+ 1037793 words of memory out of 5000000
+ 33319 multiletter control sequences out of 15000+600000
  545039 words of font info for 68 fonts, out of 8000000 for 9000
  480 hyphenation exceptions out of 8191
  80i,10n,85p,739b,1328s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -896,10 +896,10 @@ t/fonts/type1/public/amsfonts/cm/cmti12.pfb></opt/texlive/2020/texmf-dist/fonts
 public/amsfonts/cm/cmtt12.pfb></opt/texlive/2020/texmf-dist/fonts/type1/public/
 amsfonts/cm/cmtt9.pfb></opt/texlive/2020/texmf-dist/fonts/type1/public/amsfonts
 /symbols/msbm10.pfb>
-Output written on report.pdf (4 pages, 341435 bytes).
+Output written on report.pdf (5 pages, 553681 bytes).
 PDF statistics:
- 190 PDF objects out of 1000 (max. 8388607)
- 161 compressed objects within 2 object streams
- 30 named destinations out of 1000 (max. 500000)
- 115 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 198 PDF objects out of 1000 (max. 8388607)
+ 166 compressed objects within 2 object streams
+ 32 named destinations out of 1000 (max. 500000)
+ 112 words of extra memory for PDF output out of 10000 (max. 10000000)
 

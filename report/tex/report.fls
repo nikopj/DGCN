@@ -731,12 +731,12 @@ INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmbx6.tfm
 INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmti12.tfm
 INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmr9.tfm
 INPUT /opt/texlive/2020/texmf-var/fonts/map/pdftex/updmap/pdftex.map
-INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmtt9.tfm
 INPUT ./imgs/gcdn_arch.png
 INPUT ./imgs/gcdn_arch.png
 INPUT imgs/gcdn_arch.png
 INPUT ./imgs/gcdn_arch.png
 INPUT ./imgs/gcdn_arch.png
+INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmtt9.tfm
 INPUT ./imgs/nlagg.png
 INPUT ./imgs/nlagg.png
 INPUT imgs/nlagg.png
@@ -745,6 +745,11 @@ INPUT ./imgs/nlagg.png
 INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmbx10.tfm
 INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmbx7.tfm
 INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmbx5.tfm
+INPUT ./imgs/my_receptivefield.png
+INPUT ./imgs/my_receptivefield.png
+INPUT imgs/my_receptivefield.png
+INPUT ./imgs/my_receptivefield.png
+INPUT ./imgs/my_receptivefield.png
 INPUT /opt/texlive/2020/texmf-dist/fonts/tfm/public/cm/cmtt12.tfm
 INPUT report.aux
 INPUT ./report.out
