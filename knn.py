@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
+import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
-import net
-import utils
-from visual import visplot, visneighbors
-import sys
+import net, utils, visual
 
 def main():
-	x1 = utils.imgLoad('Set12/04.png')
-	x2 = utils.imgLoad('Set12/05.png')
+	#x1 = utils.imgLoad('Set12/04.png')
+	#x2 = utils.imgLoad('Set12/05.png')
 	#x  = torch.cat([x1,x2])
 	#x = utils.imgLoad('CBSD68/0018.png')
 	x = utils.imgLoad('Set12/04.png')
@@ -30,29 +28,22 @@ def main():
 	N = H*W
 
 	mask = localMask(M, M, ks)
-	edge = windowedTopK(xpad, K, M, mask)
+	#edge = windowedTopK(xpad, K, M, mask)
+	print("Finding local topK edges...")
+	edge = localTopK(xpad, K, M, mask)
+	print("done.")
 	print(f"edge.shape = ")
 	print(edge.shape)
+	print(edge.dtype)
 
 	# (B, K, N, C)
 	label, vertex = getLabelVertex(xpad, edge)
-	print(f"label.shape = ")
-	print(label.shape)
-	print("vertex.shape = ")
-	print(vertex.shape)
-	#label_img, vS_img = label.reshape(B,K,H,W,C), vertex.reshape(B,K,H,W,C)
 
 	GConv = net.GraphConv(C,Cout, ks=ks)
 	ypad = GConv(xpad, edge)
 	y = utils.unpad(ypad, pad)
 
-	a = y.min()
-	b = y.max()
-	y = (y - a)/(b-a)
-
-	#visplot(torch.cat([x,y]), (2,len(y)))
-
-	fig, handler = visneighbors(xpad, edge, local_area=ks)
+	fig, handler = visual.visplotNeighbors(xpad, edge, local_area=True, depth=3)
 	plt.show()
 
 def windowedTopK(h, K, M, mask):
@@ -73,6 +64,29 @@ def windowedTopK(h, K, M, mask):
 	edge = torch.topk(G, K, largest=False).indices.permute(0,2,1).reshape(-1,K,M,M)
 	edge = utils.unbatch_stack(edge, (I,J)) # (B,I,J,K,M,M)
 	return utils.indexTranslate(edge) # (B,K,H,W)
+
+def localTopK(h, K, M, mask):
+	B, C, H, W = h.shape
+	m1, m2 = np.floor((M-1)/2), np.ceil((M-1)/2)
+	edge = torch.empty(B,K,H,W)
+	for i in range(H): # (p,q) indexes the top-left corner of the window
+		p = int(np.clip(i-m1,0,H-M))
+		for j in range(W):
+			q = int(np.clip(j-m1,0,W-M))
+			loc_window = h[:,:,p:p+M,q:q+M]
+			v = h[:,:,i,j][...,None,None]
+			dist = torch.sum((loc_window - v)**2, dim=1).reshape(-1,M*M)
+			mi, mj = i-p, j-q              # index in local window coords
+			# window coords local area
+			mi = np.clip(np.arange(mi-1,mi+2),0,M-1).astype(np.int64)
+			mj = np.clip(np.arange(mj-1,mj+2),0,M-1).astype(np.int64)
+			mask = mi.reshape(-1,1)*M + mj.reshape(1,-1)               # window flattened idx local area
+			dist[:,mask] = torch.tensor(np.inf)
+			loc_edge = torch.topk(dist, K, largest=False).indices
+			m, n = loc_edge//M, loc_edge%M # flat window index to coord
+			m, n = m+p, n+q                # window coord to image coord
+			edge[:,:,i,j] = W*m + n        # image coord to flat image index
+	return edge.long()
 
 def graphAdj(h, mask):
 	""" ||h_j - h_i||^2 L2 similarity matrix formation
@@ -127,7 +141,7 @@ def getLabelVertex(input, edge):
 	C, N = input.shape[1], H*W
 	v = input.reshape(B, C, N)
 	edge = edge.reshape(B, K, N)
-	# differentite indices in the batch dimension,
+	# differentiate indices in the batch dimension,
 	edge = edge + torch.arange(0,B,device=input.device).reshape(-1,1,1)*N
 	# put pixels in batch dimension
 	v  = v.permute(0,2,1).reshape(-1, C)          # (BN, C)
@@ -137,6 +151,23 @@ def getLabelVertex(input, edge):
 	vS = vS.reshape(B, K, N, C)
 	label = vS - v.unsqueeze(1) # (B, K, N, C)
 	return label, vS
+
+def receptiveField(coord, edge, depth):
+	""" Return receptive field / neighbors pixel at specified coordinate 
+	after iterating with depth > 1.
+	coord: 2-tuple or flattened index of spatial dimension
+	edge: (1,K,H,W) KNN list for each pixel in (H,W)
+	depth: scalar for depth of network considering these connections
+	"""
+	m, n = coord
+	neighbors = edge[0,:,m,n]
+	if depth < 1:
+		return neighbors
+	cols = edge.shape[-1]
+	for i in range(len(neighbors)):
+		new_coord = (neighbors[i]//cols, neighbors[i]%cols)
+		neighbors = torch.cat([neighbors, receptiveField(new_coord, edge, depth-1)])
+	return neighbors
 
 if __name__ == "__main__":
 	main()

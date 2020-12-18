@@ -29,19 +29,30 @@ class DGCN(nn.Module):
 		self.wtkargs = (topK, window_size, knn.localMask(window_size, window_size, 3)) # windowedTopK args
 		self.iters = iters
 
+	def topK(self, h, *args, **kwargs):
+		#if self.eval():
+		#	return knn.localTopK(h, *args, **kwargs)
+		return knn.windowedTopK(h, *args, **kwargs)
+
 	def forward(self, x, ret_edge=False):
+		if ret_edge:
+			edge_list = []
 		x, params = utils.pre_process(x, self.wtkargs[1])
 		z = torch.cat([self.PPCONV[i](self.INCONV[i](x)) for i in range(3)], dim=1)
 		hiz = self.HPF(z); 
 		for i in range(self.iters):
-			z = (1-self.alpha[i])*z + self.beta[i]*hiz
-			z = z + self.LPF[i](z)
+			z0 = (1-self.alpha[i])*z + self.beta[i]*hiz
+			z = self.LPF[i](z0, ret_edge=ret_edge)
+			if ret_edge:
+				z, edge = z; edge_list.append(edge)
+			z = z0 + z
 		z = (1-self.alpha[-1])*z + self.beta[-1]*hiz
-		edge = knn.windowedTopK(z, *self.wtkargs) if self.wtkargs[0] is not None else None
+		edge = self.topK(z, *self.wtkargs) if self.wtkargs[0] is not None else None
 		z = self.GCout(z, edge)
 		x = utils.post_process(x+z, params)
 		if ret_edge:
-			return x, edge
+			edge_list.append(edge)
+			return x, edge_list
 		return x
 		
 class GClayer(nn.Module):
@@ -66,13 +77,18 @@ class GClayer(nn.Module):
 		self.post_iters = post_iters
 		self.block_type = block_type
 
+	def topK(self, h, *args, **kwargs):
+		#if self.eval():
+		#	return knn.localTopK(h, *args, **kwargs)
+		return knn.windowedTopK(h, *args, **kwargs)
+
 	def forward(self, x, ret_edge=False):
 		for i in range(self.pre_iters):
 			x = self.Conv[i](x)
 			if self.block_type!="PRE":
 				x = self.BNpre[i](x)
 			x = self.act(x)
-		edge = knn.windowedTopK(x, *self.wtkargs) if self.wtkargs[0] is not None else None
+		edge = self.topK(x, *self.wtkargs) if self.wtkargs[0] is not None else None
 		for i in range(self.post_iters):
 			x = self.GConv[i](x, edge)
 			if self.block_type=="LPF":

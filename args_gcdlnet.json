@@ -6,18 +6,18 @@
 	"ks": 7,
 	"iters": 10,
 	"window_size": 32,
-	"topK": 8,
+	"topK": null,
 	"rank": 11,
 	"circ_rows": null,
 	"leak": 0.2
 },
 "paths": {
-	"save": "Models/DGCN-T0",
+	"save": "Models/GCDLNet-T0",
 	"ckpt": null
 },
 "train": {
 	"loaders": {
-		"batch_size": 4,
+		"batch_size": 1,
 		"crop_size": 32,
 		"load_color": false,
 		"trn_path_list": ["CBSD432"],
@@ -29,12 +29,12 @@
 		"noise_std": 25,
 		"val_freq": 1,
 		"save_freq": 1,
-		"backtrack_thresh": 1,
+		"backtrack_thresh": 0.5,
 		"verbose": true,
 		"clip_grad": 1
 	},
 	"opt": {
-		"lr": 1e-4
+		"lr": 1e-3
 	},
 	"sched": {
 		"gamma": 0.8,

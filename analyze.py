@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from train import initModel
-import utils, visual
+import utils, visual, data
+from tqdm import tqdm
 
 def main(args):
 	model_args, train_args, paths = [args[item] for item in ['model','train','paths']]
@@ -20,7 +21,8 @@ def main(args):
 	model, _, _, epoch0 = initModel(args, device=device)
 	model.eval()
 
-	plotCurves(args, epoch0, show=False, save=True)
+	#plotCurves(args, epoch0, show=False, save=True)
+	test(args, model, device=device)
 
 	#Dconv = model.D.Conv.weight.data.transpose(0,1)
 	#visual.visplot(Dconv.cpu(), (8,8))
@@ -28,13 +30,30 @@ def main(args):
 	x = utils.imgLoad("Set12/04.png", gray=True).to(device)
 	y = utils.awgn(x, 25)
 	with torch.no_grad():
-		xhat, edge = model(y, ret_edge=True)
-	print(edge.shape)
+		xhat, edge_list = model(y, ret_edge=True)
 	psnr = (-10*torch.log10(torch.mean((x-xhat)**2))).item()
 	print(f"PSNR = {psnr:.2f}")
-	#fig1 = visual.visplot(torch.cat([y, xhat, x]).cpu())
-	#fig2, handler = visual.visneighbors(xhat.cpu(), edge.cpu(), local_area=3)
+	fig1 = visual.visplot(torch.cat([y, xhat, x]).cpu())
+	if edge_list[0] is not None:
+		fig2, handler = visual.visplotNeighbors(xhat.cpu(), edge_list[0].cpu(), local_area=None, depth=3)
 	plt.show()
+
+def test(args, model, noise_std=25, device=torch.device('cpu')):
+	loader = data.getDataLoaders(**args['train']['loaders'])['test']
+	model.eval()
+	t = tqdm(iter(loader), desc=f"TEST", dynamic_ncols=True)
+	psnr = 0
+	for itern, batch in enumerate(t):
+		batch = batch.to(device)
+		noisy_batch = utils.awgn(batch, noise_std)
+		with torch.no_grad():
+			output = model(noisy_batch)
+		mse = torch.mean((batch-output)**2).item()
+		psnr = psnr - 10*np.log10(mse)
+	psnr = psnr / (itern+1)
+	print(f"Test PSNR = {psnr:.2f} dB")
+	with open(os.path.join(args['paths']['save'], f'test.psnr'),'a') as psnr_file:
+		psnr_file.write(f'{psnr}  ')
 
 def plotCurves(args, epoch0, show=False, save=True):
 	save_dir = args['paths']['save']
@@ -43,7 +62,7 @@ def plotCurves(args, epoch0, show=False, save=True):
 	for phase in ['train','val','test']:
 		fn = os.path.join(save_dir, f"{phase}.psnr")
 		if os.path.exists(fn):
-			curves[phase] = np.loadtxt(fn, delimiter=',')
+			curves[phase] = np.loadtxt(fn, delimiter=None)
 			exists = True
 	if not exists: # exit if there are no log files
 		return 1
@@ -53,7 +72,8 @@ def plotCurves(args, epoch0, show=False, save=True):
 		plt.plot(x, curves['train'][:epoch0], '-oc', mec='k')
 	if 'val' in curves:
 		val_freq = args['train']['fit']['val_freq']
-		xval = x[::val_freq]; xval = xval[xval <= epoch0]
+		xval = x[val_freq-1::val_freq]; xval = xval[xval <= epoch0]
+		curves['val'] = curves['val'][:len(xval)]
 		plt.plot(xval, curves['val'], '-ob', mec='k')
 	if 'test' in curves:
 		plt.plot(epoch0, curves['test'], 'sr', mec='k', ms=10)

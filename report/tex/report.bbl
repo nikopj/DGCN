@@ -1,0 +1,92 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.1 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{nty/global//global/global}
+    \entry{Simonovsky2017ecc}{inproceedings}{}
+      \name{author}{2}{}{%
+        {{hash=a0cf673012ea79703eca5765b7a3b021}{%
+           family={Simonovsky},
+           familyi={S\bibinitperiod},
+           given={Martin},
+           giveni={M\bibinitperiod}}}%
+        {{hash=1b19df6325edc9e76749ac30a9d962c7}{%
+           family={Komodakis},
+           familyi={K\bibinitperiod},
+           given={Nikos},
+           giveni={N\bibinitperiod}}}%
+      }
+      \strng{namehash}{c4e0d09fe14dde20a947d8f354cae64c}
+      \strng{fullhash}{c4e0d09fe14dde20a947d8f354cae64c}
+      \strng{bibnamehash}{c4e0d09fe14dde20a947d8f354cae64c}
+      \strng{authorbibnamehash}{c4e0d09fe14dde20a947d8f354cae64c}
+      \strng{authornamehash}{c4e0d09fe14dde20a947d8f354cae64c}
+      \strng{authorfullhash}{c4e0d09fe14dde20a947d8f354cae64c}
+      \field{sortinit}{S}
+      \field{sortinithash}{c319cff79d99c853d775f88277d4e45f}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{CVPR}
+      \field{title}{Dynamic Edge-Conditioned Filters in Convolutional Neural Networks on Graphs}
+      \field{year}{2017}
+      \verb{urlraw}
+      \verb https://arxiv.org/abs/1704.02901
+      \endverb
+      \verb{url}
+      \verb https://arxiv.org/abs/1704.02901
+      \endverb
+    \endentry
+    \entry{ValsesiaICIP19}{inproceedings}{}
+      \name{author}{3}{}{%
+        {{hash=638a8f3939bc420ff4ceda395fa02f33}{%
+           family={Valsesia},
+           familyi={V\bibinitperiod},
+           given={Diego},
+           giveni={D\bibinitperiod}}}%
+        {{hash=ff1b24f3d5aafde1feb29a63cf0c3252}{%
+           family={Fracastoro},
+           familyi={F\bibinitperiod},
+           given={Giulia},
+           giveni={G\bibinitperiod}}}%
+        {{hash=694048fff4628f8cb764a36afcccf99c}{%
+           family={Magli},
+           familyi={M\bibinitperiod},
+           given={Enrico},
+           giveni={E\bibinitperiod}}}%
+      }
+      \strng{namehash}{15f4d80d53f6a2aa86f7f55bc48d01d6}
+      \strng{fullhash}{15f4d80d53f6a2aa86f7f55bc48d01d6}
+      \strng{bibnamehash}{15f4d80d53f6a2aa86f7f55bc48d01d6}
+      \strng{authorbibnamehash}{15f4d80d53f6a2aa86f7f55bc48d01d6}
+      \strng{authornamehash}{15f4d80d53f6a2aa86f7f55bc48d01d6}
+      \strng{authorfullhash}{15f4d80d53f6a2aa86f7f55bc48d01d6}
+      \field{sortinit}{V}
+      \field{sortinithash}{02432525618c08e2b03cac47c19764af}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{booktitle}{2019 26th IEEE International Conference on Image Processing (ICIP)}
+      \field{title}{Image Denoising with Graph-Convolutional Neural Networks}
+      \field{year}{2019}
+    \endentry
+  \enddatalist
+  \missing{bsd}
+  \missing{real_denoising_refs}
+\endrefsection
+\endinput
+
