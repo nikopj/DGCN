@@ -26,28 +26,34 @@ class DGCN(nn.Module):
 		if "circ_rows" in kwargs: # no circulant approximation for last Gconv.
 			kwargs["circ_rows"] = None
 		self.GCout = GraphConv(nf,nic,3,**kwargs)
-		self.wtkargs = (topK, window_size, knn.localMask(window_size, window_size, 3)) # windowedTopK args
+		self.tkargs = (topK, window_size)
+		self.local_mask = knn.localMask(window_size, window_size, 3)
+		self.sliding_mask = knn.slidingMask(window_size, 3)
 		self.iters = iters
 
-	def topK(self, h, *args, **kwargs):
-		#if self.eval():
-		#	return knn.localTopK(h, *args, **kwargs)
-		return knn.windowedTopK(h, *args, **kwargs)
+	@torch.no_grad()
+	def topK(self, h):
+		if self.tkargs[0] is None:
+			return None
+		if self.eval():
+			return knn.slidingTopK(h, *self.tkargs, self.sliding_mask)
+		return knn.windowedTopK(h, *self.tkargs, self.local_mask)
 
 	def forward(self, x, ret_edge=False):
 		if ret_edge:
 			edge_list = []
-		x, params = utils.pre_process(x, self.wtkargs[1])
+		x, params = utils.pre_process(x, self.tkargs[1], self.eval())
 		z = torch.cat([self.PPCONV[i](self.INCONV[i](x)) for i in range(3)], dim=1)
 		hiz = self.HPF(z); 
 		for i in range(self.iters):
+			print(f"i = {i}")
 			z0 = (1-self.alpha[i])*z + self.beta[i]*hiz
 			z = self.LPF[i](z0, ret_edge=ret_edge)
 			if ret_edge:
 				z, edge = z; edge_list.append(edge)
 			z = z0 + z
 		z = (1-self.alpha[-1])*z + self.beta[-1]*hiz
-		edge = self.topK(z, *self.wtkargs) if self.wtkargs[0] is not None else None
+		edge = self.topK(z)
 		z = self.GCout(z, edge)
 		x = utils.post_process(x+z, params)
 		if ret_edge:
@@ -69,18 +75,23 @@ class GClayer(nn.Module):
 			self.BNpre  = nn.ModuleList([nn.BatchNorm2d(nf) for _ in range(pre_iters)])
 		else:
 			raise NotImplementedError
-		self.wtkargs = (topK, window_size, knn.localMask(window_size,window_size,ks)) # windowedTopK args
 		self.Conv  = nn.ModuleList([nn.Conv2d(nf,nf,ks,padding=(ks-1)//2,padding_mode='reflect') for _ in range(pre_iters)])
 		self.GConv = nn.ModuleList([GraphConv(nf,nf,ks,leak=leak,**kwargs) for _ in range(post_iters)])
 		self.act   = nn.LeakyReLU(leak)
 		self.pre_iters  = pre_iters
 		self.post_iters = post_iters
 		self.block_type = block_type
+		self.tkargs = (topK, window_size)
+		self.local_mask = knn.localMask(window_size, window_size, 3)
+		self.sliding_mask = knn.slidingMask(window_size, 3)
 
-	def topK(self, h, *args, **kwargs):
-		#if self.eval():
-		#	return knn.localTopK(h, *args, **kwargs)
-		return knn.windowedTopK(h, *args, **kwargs)
+	@torch.no_grad()
+	def topK(self, h):
+		if self.tkargs[0] is None:
+			return None
+		if self.eval():
+			return knn.slidingTopK(h, *self.tkargs, self.sliding_mask)
+		return knn.windowedTopK(h, *self.tkargs, self.local_mask)
 
 	def forward(self, x, ret_edge=False):
 		for i in range(self.pre_iters):
@@ -88,7 +99,7 @@ class GClayer(nn.Module):
 			if self.block_type!="PRE":
 				x = self.BNpre[i](x)
 			x = self.act(x)
-		edge = self.topK(x, *self.wtkargs) if self.wtkargs[0] is not None else None
+		edge = self.topK(x)
 		for i in range(self.post_iters):
 			x = self.GConv[i](x, edge)
 			if self.block_type=="LPF":
@@ -127,19 +138,29 @@ class GCDLNet(nn.Module):
 		self.A[0] = self.A[0].Conv
 		self.B = nn.ModuleList([conv_gen(nf,nic) for _ in range(iters)])
 		self.tau = nn.ParameterList([nn.Parameter(1e-1*torch.ones(1,nf,1,1)/L) for _ in range(iters)])
-		self.wtkargs = (topK, window_size, knn.localMask(window_size, window_size, ks)) # windowedTopK args
+		self.tkargs = (topK, window_size)
+		self.local_mask = knn.localMask(window_size, window_size, 3)
+		self.sliding_mask = knn.slidingMask(window_size, 3)
 		self.iters = iters
 		self.edge_freq = edge_freq
 
+	@torch.no_grad()
+	def topK(self, h):
+		if self.tkargs[0] is None:
+			return None
+		if self.eval():
+			return knn.slidingTopK(h, *self.tkargs, self.sliding_mask)
+		return knn.windowedTopK(h, *self.tkargs, self.local_mask)
+
 	def forward(self, y, ret_edge=False):
-		yp, params = utils.pre_process(y, self.wtkargs[1])
+		yp, params = utils.pre_process(y, self.tkargs[1], self.eval())
 		z = ST(self.A[0](yp), self.tau[0])
 		for i in range(1, self.iters):
 			if ((i-1) % self.edge_freq) == 0:
-				edge = knn.windowedTopK(z, *self.wtkargs) if self.wtkargs[0] is not None else None
+				edge = self.topK(z)
 			r = self.B[i](z, edge) - yp
 			z = ST(z - self.A[i](r, edge), self.tau[i])
-		edge = knn.windowedTopK(z, *self.wtkargs) if self.wtkargs[0] is not None else None
+		edge = self.topK(z)
 		xphat = self.D(z, edge)
 		xhat  = utils.post_process(xphat, params)
 		if ret_edge:

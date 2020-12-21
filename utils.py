@@ -25,15 +25,18 @@ def awgn(input, noise_std):
 		       (noise_std[1] - noise_std[0])*torch.rand(len(input),1,1,1, device=input.device)
 	return input + torch.randn_like(input) * (sigma/255)
 
-def pre_process(x, window_size):
+def pre_process(x, window_size, eval_phase):
 	params = []
 	# mean-subtract
 	xmean = x.mean(dim=(2,3), keepdim=True)
 	x = x - xmean
 	params.append(xmean)
 	# pad signal for windowed processing (in GraphConv)
-	pad = calcPad2D(*x.shape[2:], window_size)
-	x = F.pad(x, pad, mode='reflect')
+	if eval_phase:
+		pad = calcPad2D(*x.shape[2:], window_size)
+		x = F.pad(x, pad, mode='reflect')
+	else:
+		pad = (0,0,0,0)
 	params.append(pad)
 	return x, params
 
@@ -47,8 +50,7 @@ def post_process(x, params):
 	return x
 
 def calcPad1D(L, M):
-	""" Return symmetric pad sizes for length L 1D signal 
-	to be divided into non-overlapping windows of size M.
+	""" Return pad sizes for length L 1D signal to be divided by M
 	"""
 	if L%M == 0:
 		Lpad = [0,0]
@@ -59,17 +61,20 @@ def calcPad1D(L, M):
 	return Lpad
 
 def calcPad2D(H, W, M):
-	""" Return pad sizes for image (H,W) to be 
-	divided into windows of size (MxM).
+	""" Return pad sizes for image (H,W) to be divided by size M
 	(H,W): input height, width
-	M: window size
 	output: (padding_left, padding_right, padding_top, padding_bottom)
 	"""
 	return (*calcPad1D(W,M), *calcPad1D(H,M))
 
-def unpad(I, pad):
-	""" Remove padding from 2D signal I.
+def conv_pad(x, ks, mode):
+	""" Pad a signal for same-sized convolution
 	"""
+	pad = (int(np.floor((ks-1)/2)), int(np.ceil((ks-1)/2)))
+	return F.pad(x, (*pad, *pad), mode=mode)
+
+def unpad(I, pad):
+	""" Remove padding from 2D signalstack"""
 	if pad[3] == 0 and pad[1] > 0:
 		return I[..., pad[2]:, pad[0]:-pad[1]]
 	elif pad[3] > 0 and pad[1] == 0:
@@ -79,12 +84,12 @@ def unpad(I, pad):
 	else:
 		return I[..., pad[2]:-pad[3], pad[0]:-pad[1]]
 
-def stack(T, M):
+def stack(T, ks, stride, padding=False):
 	""" Stack I (B, C, H, W) into patches of size (MxM).
 	output: (B, I, J, C, H, W).
 	"""
-	# (B,C,H,W) -> unfold (B,C,I,J,M,M) -> permute (B,I,J,C,M,M)
-	return T.unfold(2,M,M).unfold(3,M,M).permute(0,2,3,1,4,5)
+	# (B,C,H,W) -> unfold (B,C,I,J,ks,ks) -> permute (B,I,J,C,ks,ks)
+	return T.unfold(2,ks,stride).unfold(3,ks,stride).permute(0,2,3,1,4,5)
 
 def batch_stack(S):
 	""" Reorder stack (B, I, J, C, M, M) so that 
@@ -110,21 +115,22 @@ def unstack(S):
 	T = S.reshape(B, I*J, C*M*M).permute(0,2,1)
 	return F.fold(T, (I*M, J*M), M, stride=M)
 
-def indexTranslate(idx):
-	""" Translate stacked grid (flattened MxM window) index (B,I,J,K,M,M)
+def indexTranslate(idx,M):
+	""" Translate stacked grid (flattened MxM window) index (B,I,J,K,S,S)
 	to tiled-image (flattened HxW) index, (B,K,H,W)
 	"""
-	B, I, J, K, M, _ = idx.shape
+	B, I, J, K, S, _ = idx.shape
 	# each idx entries grid-index
-	grid_idx = torch.arange(0,I*J,device=idx.device).repeat_interleave(M*M).reshape(1,I,J,1,M,M).repeat_interleave(K, dim=3)
+	grid_idx = torch.arange(0,I*J,device=idx.device).repeat_interleave(S*S).reshape(1,I,J,1,S,S).repeat_interleave(K, dim=3)
 	# grid index row and column (inter-window)
 	gi, gj = grid_idx//J, grid_idx%J
 	# window index row and column (intra-window)
+	#wi, wj = idx//S, idx%S
 	wi, wj = idx//M, idx%M
 	# global index row and column
-	m, n = wi+gi*M, wj+gj*M
+	m, n = wi+gi*S, wj+gj*S
 	# global flattened index
-	p = J*M*m + n
+	p = J*S*m + n
 	# stack to tile (unstack requires float)
 	return unstack(p.float()).long()
-
+	

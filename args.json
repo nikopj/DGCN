@@ -1,14 +1,13 @@
 {
-"type": "GCDLNet",
+"type": "DGCN",
 "model": {
 	"nic": 1,
-	"nf": 16,
-	"ks": 7,
-	"iters": 10,
+	"nf": 18,
+	"iters": 3,
 	"window_size": 32,
 	"topK": 8,
 	"rank": 11,
-	"circ_rows": null,
+	"circ_rows": 3,
 	"leak": 0.2
 },
 "paths": {
@@ -17,10 +16,10 @@
 },
 "train": {
 	"loaders": {
-		"batch_size": 4,
+		"batch_size": 1,
 		"crop_size": 32,
 		"load_color": false,
-		"trn_path_list": ["CBSD432"],
+		"trn_path_list": ["Set12"],
 		"val_path_list": ["Set12"],
 		"tst_path_list": ["Set12"]
 	},

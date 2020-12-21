@@ -5,14 +5,21 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
-import net, utils, visual
+import net, utils, visual 
+import time
+import faiss.contrib.exhaustive_search as exs
 
 def main():
 	#x1 = utils.imgLoad('Set12/04.png')
 	#x2 = utils.imgLoad('Set12/05.png')
 	#x  = torch.cat([x1,x2])
 	#x = utils.imgLoad('CBSD68/0018.png')
-	x = utils.imgLoad('Set12/04.png')
+	#x = utils.imgLoad('Set12/04.png')
+
+	#N = 12
+	#x = torch.arange(N*N).reshape(1,1,N,N).float()
+	#print("x.shape =", x.shape)
+	#print(x)
 
 	C = x.shape[1]
 	Cout = 3
@@ -21,30 +28,87 @@ def main():
 	ks = 3
 	M = 32
 
-	pad = utils.calcPad2D(*x.shape[2:], M)
-	xpad = F.pad(x, pad, mode='reflect')  # (B, C, H, W)
+	local = False
+	if not local:
+		pad = utils.calcPad2D(*x.shape[2:],M)
+		xpad = F.pad(x, pad, mode='reflect')
+	else:
+		xpad = x
 
-	B, C, H, W = xpad.shape
-	N = H*W
+	#print("Starting faiss_knn ...")
+	#start = time.time()
+	#xbq = xpad.reshape(N,1).numpy()
+	#_, I = exs.knn(xbq,xbq, K)
+	#end = time.time()
+	#print("done.")
+	#print(f"fais_knn time = {end-start:.3f}")
 
 	mask = localMask(M, M, ks)
+	mask = slidingMask(M, ks)
+
+	print("Starting topK ...")
+	start = time.time()
+	edge = slidingTopK(xpad, K, M, mask)
 	#edge = windowedTopK(xpad, K, M, mask)
-	print("Finding local topK edges...")
-	edge = localTopK(xpad, K, M, mask)
+	end = time.time()
 	print("done.")
+	print(f"time = {end-start:.3f}")
+
 	print(f"edge.shape = ")
 	print(edge.shape)
-	print(edge.dtype)
+
+	sys.exit()
+	print(edge[:,0])
 
 	# (B, K, N, C)
 	label, vertex = getLabelVertex(xpad, edge)
 
-	GConv = net.GraphConv(C,Cout, ks=ks)
-	ypad = GConv(xpad, edge)
-	y = utils.unpad(ypad, pad)
+	#GConv = net.GraphConv(C,Cout, ks=ks)
+	#ypad = GConv(x, edge)
+	#y = utils.unpad(ypad, pad)
 
-	fig, handler = visual.visplotNeighbors(xpad, edge, local_area=True, depth=3)
+	fig, handler = visual.visplotNeighbors(xpad, edge, local_area=False, depth=0)
 	plt.show()
+
+def slidingTopK(h, K, M, mask=None, stride=1):
+	""" Performs KNN on each input pixel with a window of MxM.
+	ONLY STRIDE==1 WORKS FOR NOW...
+	"""
+	if stride != 1:
+		raise NotImplementedError
+	# form index set that follows the reflection padding of input vector
+	index = torch.arange(h.shape[-2]*h.shape[-1]).reshape(1,1,h.shape[-2],h.shape[-1]).float()
+	index = utils.conv_pad(index, M, mode='reflect')
+	hp = utils.conv_pad(h, M, mode='reflect')
+	hs = utils.stack(hp, M, stride) # (B,I,J,C,M,M)
+	B, I, J = hs.shape[:3]
+	hbs = utils.batch_stack(hs) # (BIJ, C, M, M)
+	ibs = utils.batch_stack(utils.stack(index, M, stride))
+	cpx = (M-1)//2
+	pad = (int(np.floor((stride-1)/2)), int(np.ceil((stride-1)/2)))
+	v = hbs[...,(cpx-pad[0]):(cpx+pad[1]+1), (cpx-pad[0]):(cpx+pad[1]+1)]
+	S = v.shape[-1]
+	print(f"forming adjacency matrix...")
+	G = graphAdj(v, hbs, mask) # (BIJ, SS, MM)
+	ibs  = ibs.reshape(B*I*J, 1, M*M)
+	edge = torch.topk(G, K, largest=False).indices
+	edge = edge + torch.arange(0,B*I*J,device=h.device).reshape(-1,1,1)*M*M
+	edge = torch.index_select(ibs.reshape(-1,1), 0, edge.flatten())
+	edge = edge.reshape(B*I*J, S*S, K).permute(0,2,1).reshape(-1,K,S,S)
+	edge = utils.unbatch_stack(edge, (I,J))
+	edge = utils.unstack(edge)
+	return edge.long()
+
+def slidingMask(M, ks):
+	""" Returns a mask for stride=1 slidingTopK.
+	M: window size
+	ks: local area
+	"""
+	mask  = torch.ones(M*M).reshape(M,M).bool()
+	cpx  = (M-1)//2
+	pad  = (int(np.floor((ks-1)/2)), int(np.ceil((ks-1)/2)))
+	mask[...,(cpx-pad[0]):(cpx+pad[1]+1), (cpx-pad[0]):(cpx+pad[1]+1)] = 0
+	return mask.reshape(1,-1)
 
 def windowedTopK(h, K, M, mask):
 	""" Returns top K feature vector indices for 
@@ -54,18 +118,20 @@ def windowedTopK(h, K, M, mask):
 	output: (B, K, H, W) K edge indices (of flattened image) for each pixel
 	"""
 	# stack image windows
-	hs = utils.stack(h, M)          # (B,I,J,C,M,M)
+	hs = utils.stack(h, M, M)            # (B,I,J,C,M,M)
 	I, J = hs.shape[1], hs.shape[2]
 	# move stack to match dimension to build batched Graph Adjacency matrices
-	hbs = utils.batch_stack(hs)     # (B*I*J,C,M,M)
-	G = graphAdj(hbs, mask)         # (B*I*J, M*M, M*M)
+	hbs = utils.batch_stack(hs)          # (B*I*J,C,M,M)
+	G = graphAdj(hbs, hbs, mask)         # (B*I*J, M*M, M*M)
 	# find topK in each window, unbatch the stack, translate window-index to tile index
 	# (B*I*J,M*M,K) -> (B*I*J,K,M*M) -> (B*I*J, K, M, M)
 	edge = torch.topk(G, K, largest=False).indices.permute(0,2,1).reshape(-1,K,M,M)
 	edge = utils.unbatch_stack(edge, (I,J)) # (B,I,J,K,M,M)
-	return utils.indexTranslate(edge) # (B,K,H,W)
+	return utils.indexTranslate(edge, M) # (B,K,H,W)
 
 def localTopK(h, K, M, mask):
+	""" Computes topK vectors in a sliding window.
+	"""
 	B, C, H, W = h.shape
 	m1, m2 = np.floor((M-1)/2), np.ceil((M-1)/2)
 	edge = torch.empty(B,K,H,W)
@@ -88,7 +154,7 @@ def localTopK(h, K, M, mask):
 			edge[:,:,i,j] = W*m + n        # image coord to flat image index
 	return edge.long()
 
-def graphAdj(h, mask):
+def graphAdj(h1, h2, mask=None):
 	""" ||h_j - h_i||^2 L2 similarity matrix formation
 	Using the following identity:
 		||h_j - h_i||^2 = ||h_j||^2 - 2h_j^Th_i + ||h_i||^2
@@ -96,14 +162,17 @@ def graphAdj(h, mask):
 	mask: (H*W, H*W) 
 	G: output (B, N, N), N=H*W
 	"""
-	N = h.shape[2]*h.shape[3] # num pixels
-	v = h.reshape(-1,h.shape[1],N) # (B, C, N)
-	vtv = torch.bmm(v.transpose(1,2), v) # batch matmul, (B, N, N)
-	normsq_v = vtv.diagonal(dim1=1, dim2=2) # (B, N)
-	# need to add normsq_v twice, with broadcasting in row/col dim
-	G = normsq_v.unsqueeze(1) - 2*vtv + normsq_v.unsqueeze(2) # (B, N, N)
+	B, C, _, _ = h1.shape
+	u = h1.reshape(B, C, -1) # (B, C, N1)
+	v = h2.reshape(B, C, -1) # (B, C, N2)
+	uvt = torch.bmm(u.transpose(1,2), v) # batch matmul, (B, N1, N2)
+	utu = torch.sum(u**2, dim=1) # (B, N1)
+	vtv = torch.sum(v**2, dim=1) # (B, N2)
+	# broadcast in row/col dims
+	G = utu.unsqueeze(2) - 2*uvt + vtv.unsqueeze(1) # (B, N, N)
 	# apply local mask (local distances set to infinity)
-	G[:,~mask] = torch.tensor(np.inf)
+	if mask is not None:
+		G[:,~mask] = torch.tensor(np.inf)
 	return G
 
 def localMask(H,W,M):
